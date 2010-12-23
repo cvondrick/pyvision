@@ -4,7 +4,7 @@ from Cython.Distutils import build_ext
 import os
 
 print "building ffmpeg/_extract.o"
-os.system("g++ -D__STDC_CONSTANT_MACROS -c -O3 -fPIC vision/ffmpeg/_extract.c -o vision/ffmpeg/_extract.o")
+os.system("g++ -Wno-deprecated-declarations -D__STDC_CONSTANT_MACROS -c -O3 -fPIC vision/ffmpeg/_extract.c -o vision/ffmpeg/_extract.o")
 
 print "building liblinear"
 os.system("make -C vision/liblinear")
@@ -31,6 +31,13 @@ ext_modules = [
         extra_objects = [root + 'ffmpeg/_extract.o'],
         language = 'c++')
     ]
+
+for e in ext_modules:
+    e.pyrex_directives = {
+        "boundscheck": False,
+        "cdivision": True,
+        "infer_types": True}
+    e.include_dirs.append(".")
 
 setup(
     name = "pyvision",

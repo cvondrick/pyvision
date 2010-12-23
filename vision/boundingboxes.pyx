@@ -9,6 +9,11 @@ cdef extern from "math.h":
     double sqrt(double i)
 
 cdef class Box(object):
+
+    cdef public int xtl, ytl, xbr, ybr
+    cdef public int lost
+    cdef public int frame
+
     """
     A unlabeled bounding box not bound to a frame.
     """
