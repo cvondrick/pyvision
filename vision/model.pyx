@@ -1,5 +1,5 @@
 import svm
-import boundingboxes
+import representations
 import features
 import random
 import logging
@@ -64,7 +64,7 @@ class PathModel(object):
             hogim = features.hog(im, hogbin)
             for i in range(0, im.size[0]-dim[0], bgskip):
                 for j in range(0, im.size[1]-dim[1], bgskip):
-                    if not boundingboxes.Box(i/wr, j/hr, (i + dim[0])/wr, (j + dim[1])/hr).intersects(given):
+                    if not representations.Box(i/wr, j/hr, (i + dim[0])/wr, (j + dim[1])/hr).intersects(given):
                         hogpatch = hogim[j/hogbin:(j+dim[1])/hogbin-2, i/hogbin:(i+dim[0])/hogbin-2, :].flatten()
                         rgbpatch = features.rgbhist(im.crop((i, j, i+dim[0], j+dim[1]))).flatten()
                         negatives.append(numpy.append(hogpatch, rgbpatch))

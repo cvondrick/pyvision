@@ -5,7 +5,7 @@ import boundingboxes
 
 class Geppetto(object):
     """
-    Facilitates making toy data. Geppetto manages the toys and renders the
+    Facilitates making toy tracking data. Geppetto manages the toys and renders the
     frames to produce the actual data.
     """
     def __init__(self, size = (720, 480), background = (255, 255, 255), cap = -1):

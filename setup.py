@@ -12,7 +12,7 @@ os.system("make -C vision/liblinear")
 root = os.getcwd() + "/vision/"
 
 ext_modules = [
-    Extension("boundingboxes", ["vision/boundingboxes.pyx", "vision/boundingboxes.pxd"]),
+    Extension("representations", ["vision/representations.pyx", "vision/representations.pxd"]),
     Extension("features", ["vision/features.pyx"]),
     Extension("model", ["vision/model.pyx"]),
     Extension("convolution", ["vision/convolution.pyx"]),
@@ -38,6 +38,7 @@ for e in ext_modules:
         "cdivision": True,
         "infer_types": True}
     e.include_dirs.append(".")
+    e.extra_compile_args = ['-w']
 
 setup(
     name = "pyvision",

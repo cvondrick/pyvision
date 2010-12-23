@@ -1,9 +1,9 @@
 import math, logging, multiprocessing, numpy
-from vision import boundingboxes, convolution, model
+from vision import representations, convolution, model
 import interpolation
 
 cimport numpy
-from vision cimport boundingboxes
+from vision cimport representations
 import matplotlib.pyplot as plt
 
 cdef extern from "math.h":
@@ -38,8 +38,8 @@ def pick(images, path, dim = (40, 40), errortube = 100,
 
     return best
 
-def score_frame(boundingboxes.Box linearbox, images, svm,
-                boundingboxes.Box previous, boundingboxes.Box current, dim,
+def score_frame(representations.Box linearbox, images, svm,
+                representations.Box previous, representations.Box current, dim,
                 int errortube, double sigma = 10, plot = False):
     """
     Scores an individual frame to determine its usefulness. A higher score
