@@ -6,21 +6,29 @@ import os
 print "building ffmpeg/_extract.o"
 os.system("g++ -D__STDC_CONSTANT_MACROS -c -O3 -fPIC vision/ffmpeg/_extract.c -o vision/ffmpeg/_extract.o")
 
+print "building liblinear"
+os.system("make -C vision/liblinear")
+
+root = os.getcwd() + "/vision/"
+
 ext_modules = [
     Extension("boundingboxes", ["vision/boundingboxes.pyx", "vision/boundingboxes.pxd"]),
     Extension("features", ["vision/features.pyx"]),
-    Extension("svm", ["vision/svm.pyx"]),
     Extension("model", ["vision/model.pyx"]),
     Extension("convolution", ["vision/convolution.pyx"]),
     Extension("track.standard", ["vision/track/standard.pyx"]),
     Extension("track.alearn", ["vision/track/alearn.pyx"]),
-    Extension("ffmpeg.extract", sources =
-        ["vision/ffmpeg/extract.pyx", 
-        "vision/ffmpeg/extract.pxd"],
-        include_dirs = [os.getcwd() + '/vision/ffmpeg/'],
-        library_dirs = [os.getcwd() + '/vision/ffmpeg/'],
+    Extension("svm", ["vision/svm.pyx"],
+        extra_objects = [root + "liblinear/linear.o",
+                         root + "liblinear/tron.o",
+                         root + "liblinear/blas/blas.a"],
+        language = "c++"),
+    Extension("ffmpeg.extract",
+        sources = ["vision/ffmpeg/extract.pyx"],
+        include_dirs = [root + 'ffmpeg/'],
+        library_dirs = [root + 'ffmpeg/'],
         libraries = ['avformat', 'avcodec', 'avutil', 'swscale'],
-        extra_objects = [os.getcwd() + '/vision/ffmpeg/_extract.o'],
+        extra_objects = [root + 'ffmpeg/_extract.o'],
         language = 'c++')
     ]
 
