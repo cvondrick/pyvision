@@ -1,2 +1,2 @@
-do : 
+make :
 	python setup.py build

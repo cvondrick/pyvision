@@ -1,9 +1,9 @@
 import math, logging, multiprocessing, numpy
-from vision import representations, convolution, model
+from vision import annotations, convolution, model
 import interpolation
 
 cimport numpy
-from vision cimport representations
+from vision cimport annotations
 import matplotlib.pyplot as plt
 
 cdef extern from "math.h":
@@ -38,8 +38,8 @@ def pick(images, path, dim = (40, 40), errortube = 100,
 
     return best
 
-def score_frame(representations.Box linearbox, images, svm,
-                representations.Box previous, representations.Box current, dim,
+def score_frame(annotations.Box linearbox, images, svm,
+                annotations.Box previous, annotations.Box current, dim,
                 int errortube, double sigma = 10, plot = False):
     """
     Scores an individual frame to determine its usefulness. A higher score

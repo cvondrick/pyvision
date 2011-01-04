@@ -12,7 +12,7 @@ os.system("make -C vision/liblinear")
 root = os.getcwd() + "/vision/"
 
 ext_modules = [
-    Extension("representations", ["vision/representations.pyx", "vision/representations.pxd"]),
+    Extension("annotations", ["vision/annotations.pyx", "vision/annotations.pxd"]),
     Extension("features", ["vision/features.pyx"]),
     Extension("model", ["vision/model.pyx"]),
     Extension("convolution", ["vision/convolution.pyx"]),

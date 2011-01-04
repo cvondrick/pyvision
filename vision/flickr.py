@@ -6,12 +6,15 @@ import Image
 import os
 from xml.etree import ElementTree
 import logging
+import StringIO
 
-all_extras = "description,license,date_upload,date_taken,owner_name,"
+all_extras = ("description,license,date_upload,date_taken,owner_name,"
 "icon_server,original_format,last_update,geo,tags,machine_tags,o_dims,"
-"views,media,path_alias,url_sq,url_t,url_s,url_m,url_o"
+"views,media,path_alias,url_sq,url_t,url_s,url_m,url_o")
 
 keys = []
+
+log = logging.getLogger("vision.flickr")
 
 class Photo(object):
     """
@@ -39,13 +42,17 @@ class Photo(object):
         s = StringIO.StringIO(data)
         return Image.open(s)
 
+    def __hash__(self):
+        return self.flickrid
+
+    def __eq__(self, other):
+        return self.flickrid == other.flickrid
+
     @classmethod
     def fromapi(cls, attrib):
         """
         Constructs a photo object from the Flickr API XML specification.
         """
-        print attrib
-        return
         if "url_o" in attrib:
             url = attrib["url_o"] 
             size = attrib["width_o"], attrib["height_o"]
@@ -79,7 +86,8 @@ def request(method, parameters = {}):
     url = url.format(method, apikey, parameters)
     conn = httplib.HTTPConnection("api.flickr.com")
     conn.request("GET", url)
-    response = ElementTree.fromstring(conn.getresponse().read())
+    response = conn.getresponse().read()
+    response = ElementTree.fromstring(response)
     conn.close()
     return response
 
@@ -111,7 +119,7 @@ def recent(perpage = 500):
     for photo in photos.getiterator("photo"):
         yield Photo.fromapi(photo.attrib)
 
-def pascal(tags, range = (2003, 2009)):
+def pascal(tags, range = (2003, 2010)):
     """
     Builds an iterator that queries images identical to the Pascal challenge.
     """
@@ -178,36 +186,24 @@ def delay(iterator, wait = 1, every = 1):
             time.sleep(wait)
         yield photo
 
-def scrape(iterator, limit, classification, root = "store/flickr"):
+def scrape(iterator, location, limit):
     """
-    Downloads up the limit of all photos in an iterator.
+    Downloads up to the limit of all photos in an iterator.
     """
-    total = 0
-    duplicates = 0
-    root = root + "/" + classification
     for photo in iterator:
+        filepath = "{0}/{1}/{2}.jpg".format(location, photo.flickrid % 100, photo.flickrid)
+        if os.path.exists(filepath):
+            log.info("Skipping duplicate {0}".format(photo.flickrid))
+            continue
+
+        log.info("Downloading {0} ({1})".format(photo.flickrid, photo.format))
+        image = photo.download()
         try:
-            total += 1
+            image.save(filepath)
+        except IOError:
+            os.makedirs(os.path.dirname(filepath))
+            image.save(filepath)
 
-            log.info("Downloading {0} ({1})".format(photo.flickrid, photo.format))
-            filepath = "{0}/{1}/{2}.jpg".format(root, photo.flickrid % 100, photo.flickrid)
-            image = photo.download()
-            try:
-                image.save(filepath)
-            except IOError:
-                os.makedirs(os.path.dirname(filepath))
-                image.save(filepath)
-
-            photo.localpath = filepath
-            photo.classification = classification
-
-            session.add(photo)
-            session.commit()
-
-            limit -= 1
-            if limit == 0:
-                break
-        except KeyboardInterrupt:
-            raise
-        except Exception as e:
-            log.exception(e)
+        limit -= 1
+        if limit == 0:
+            break
