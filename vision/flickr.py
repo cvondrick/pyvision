@@ -196,13 +196,18 @@ def scrape(iterator, location, limit):
             log.info("Skipping duplicate {0}".format(photo.flickrid))
             continue
 
-        log.info("Downloading {0} ({1})".format(photo.flickrid, photo.format))
-        image = photo.download()
         try:
-            image.save(filepath)
-        except IOError:
-            os.makedirs(os.path.dirname(filepath))
-            image.save(filepath)
+            log.info("Downloading {0} ({1})".format(photo.flickrid, photo.format))
+            image = photo.download()
+            try:
+                image.save(filepath)
+            except IOError:
+                os.makedirs(os.path.dirname(filepath))
+                image.save(filepath)
+        except KeyboardInterrupt:
+            raise
+        except:
+            pass
 
         limit -= 1
         if limit == 0:

@@ -42,6 +42,9 @@ cdef class Box(object):
         """
         return self.xtl+self.get_width()/2, self.ytl+self.get_height()/2
 
+    def area(self):
+        return (self.xbr - self.xtl) * (self.ybr - self.ytl)
+
     def distance(self, oth):
         """
         Calculate the Euclidean distance between boxes.
@@ -73,7 +76,7 @@ cdef class Box(object):
         if xdiff <= 0 or ydiff <= 0:
             return 0
 
-        uni = self.get_area() + oth.get_area() - xdiff * ydiff
+        uni = self.area() + oth.area() - xdiff * ydiff
         return float(xdiff * ydiff) / float(uni)
 
     def resize(self, xratio, yratio = None):
@@ -145,4 +148,5 @@ cdef class Box(object):
         """
         Allows accessing bounding box as if its a tuple
         """
-        return self.tuple()[a]
+        tuple = (self.xtl, self.ytl, self.xbr, self.ybr, self.frame, self.lost)
+        return tuple[a]
