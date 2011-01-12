@@ -1,6 +1,11 @@
-from distutils.core import setup
-from distutils.extension import Extension
+# immediately below is stupid hackery for setuptools to work with Cython
+import distutils.extension
+from distutils.extension import Extension as _Extension
+from setuptools import setup
+Extension = distutils.extension.Extension = _Extension
 from Cython.Distutils import build_ext
+# end stupid hackery
+
 import os
 
 print "building ffmpeg/_extract.o"
