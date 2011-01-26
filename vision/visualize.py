@@ -1,11 +1,17 @@
 import ImageDraw
-import ImageColor
 import itertools
 import random
 
 defaultwidth = 2
-colors = ImageColor.colormap.values()
-random.shuffle(colors)
+colors = ["#FF00FF",
+          "#FF0000",
+          "#FF8000",
+          "#FFD100",
+          "#008000",
+          "#0080FF",
+          "#0000FF",
+          "#000080",
+          "#800080"]
 
 def highlight_box(image, box, color = colors[0], width = defaultwidth):
     """

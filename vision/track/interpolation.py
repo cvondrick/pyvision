@@ -1,4 +1,4 @@
-from ..boundingboxes import *
+from ..annotations import *
 
 def Linear(source, target):
     """
@@ -22,7 +22,7 @@ def Linear(source, target):
         ytl = source.ytl + ytlr * off
         xbr = source.xbr + xbrr * off
         ybr = source.ybr + ybrr * off
-        results.append(LBox(xtl, ytl, xbr, ybr, i, 0))
+        results.append(Box(xtl, ytl, xbr, ybr, i, 0))
 
     return results
 
@@ -55,23 +55,23 @@ def LostCurry(halfway = True):
         halfwaypoint = (target.frame - source.frame) // 2 + source.frame
 
         if target.lost and source.lost:
-            path = [LBox(source.xtl, source.ytl, source.xbr, source.ybr,
+            path = [Box(source.xtl, source.ytl, source.xbr, source.ybr,
                 frame, True) for frame in range(source.frame, target.frame + 1)]
                 
         elif target.lost and not source.lost:
             if halfway:
-                path = [LBox(source.xtl, source.ytl, source.xbr, source.ybr,
+                path = [Box(source.xtl, source.ytl, source.xbr, source.ybr,
                     frame, False) for frame in range(source.frame, halfwaypoint)]
-                path.extend(LBox(target.xtl, target.ytl, target.xbr, target.ybr,
+                path.extend(Box(target.xtl, target.ytl, target.xbr, target.ybr,
                     frame, True) for frame in range(halfway, target.frame + 1))
             else:
                 path = []
 
         elif not target.lost and source.lost:
             if halfway:
-                path = [LBox(source.xtl, source.ytl, source.xbr, source.ybr,
+                path = [Box(source.xtl, source.ytl, source.xbr, source.ybr,
                     frame, True) for frame in range(source.frame, halfwaypoint)]
-                path.extend(LBox(target.xtl, target.ytl, target.xbr, target.ybr,
+                path.extend(Box(target.xtl, target.ytl, target.xbr, target.ybr,
                     frame,False) for frame in range(halfwaypoint, target.frame+1))
             else:
                 path = []

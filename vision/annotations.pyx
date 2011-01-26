@@ -11,14 +11,14 @@ cdef extern from "math.h":
 cdef class Box(object):
 
     cdef public int xtl, ytl, xbr, ybr
-    cdef public int lost
+    cdef public int lost, occluded
     cdef public int frame
 
     """
     A unlabeled bounding box not bound to a frame.
     """
     @cython.profile(False)
-    def __init__(self, int xtl, int ytl, int xbr, int ybr, int frame = 0, int lost = 0):
+    def __init__(self, int xtl, int ytl, int xbr, int ybr, int frame = 0, int lost = 0, int occluded = 0):
         """Initializes the bounding box."""
         if xbr <= xtl:
             raise TypeError("xbr must be > xtl")
@@ -35,6 +35,7 @@ cdef class Box(object):
         self.ybr = ybr
         self.frame = frame
         self.lost = lost
+        self.occluded = occluded
 
     def center(self):
         """
@@ -142,11 +143,11 @@ cdef class Box(object):
         """
         Provides support to serialize the box.
         """
-        return (Box, (self.xtl, self.ytl, self.xbr, self.ybr, self.frame, self.lost))
+        return (Box, (self.xtl, self.ytl, self.xbr, self.ybr, self.frame, self.lost, self.occluded))
 
     def __getitem__(self, a):
         """
         Allows accessing bounding box as if its a tuple
         """
-        tuple = (self.xtl, self.ytl, self.xbr, self.ybr, self.frame, self.lost)
+        tuple = (self.xtl, self.ytl, self.xbr, self.ybr, self.frame, self.lost, self.occluded)
         return tuple[a]
