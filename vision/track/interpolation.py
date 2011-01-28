@@ -22,62 +22,16 @@ def Linear(source, target):
         ytl = source.ytl + ytlr * off
         xbr = source.xbr + xbrr * off
         ybr = source.ybr + ybrr * off
-        results.append(Box(xtl, ytl, xbr, ybr, i, 0))
+        results.append(Box(xtl, ytl, xbr, ybr, i, source.lost, source.occluded))
 
     return results
 
 def LinearFill(path, method = Linear):
     """
     Takes a sparse path and performs linear interpolation between the points.
-
-    Set method to Lost if the path contains lossable boxes.
     """
     result = []
     for x, y in zip(path, path[1:]):
         result.extend(method(x, y)[:-1])
     result.append(path[-1])
     return result
-
-def Lost(source, target):
-    curry = LostCurry()
-    return curry(source, target)
-
-def LostCurry(halfway = True):
-    """
-    Performs linear interpolation between a source and target, but attempts
-    to interpolate boxes when the source or target or both are lost.
-    """
-
-    def compute(source, target):
-        if target.frame <= source.frame:
-            raise ValueError("Target frame must be greater than source frame.")
-
-        halfwaypoint = (target.frame - source.frame) // 2 + source.frame
-
-        if target.lost and source.lost:
-            path = [Box(source.xtl, source.ytl, source.xbr, source.ybr,
-                frame, True) for frame in range(source.frame, target.frame + 1)]
-                
-        elif target.lost and not source.lost:
-            if halfway:
-                path = [Box(source.xtl, source.ytl, source.xbr, source.ybr,
-                    frame, False) for frame in range(source.frame, halfwaypoint)]
-                path.extend(Box(target.xtl, target.ytl, target.xbr, target.ybr,
-                    frame, True) for frame in range(halfway, target.frame + 1))
-            else:
-                path = []
-
-        elif not target.lost and source.lost:
-            if halfway:
-                path = [Box(source.xtl, source.ytl, source.xbr, source.ybr,
-                    frame, True) for frame in range(source.frame, halfwaypoint)]
-                path.extend(Box(target.xtl, target.ytl, target.xbr, target.ybr,
-                    frame,False) for frame in range(halfwaypoint, target.frame+1))
-            else:
-                path = []
-
-        else:
-            path = Linear(source, target)
-
-        return path
-    return compute
