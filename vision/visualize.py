@@ -2,7 +2,7 @@ import ImageDraw
 import itertools
 import random
 
-defaultwidth = 2
+defaultwidth = 1
 colors = ["#FF00FF",
           "#FF0000",
           "#FF8000",
@@ -18,6 +18,8 @@ def highlight_box(image, box, color = colors[0], width = defaultwidth):
     Highlights the bounding box on the given image.
     """
     draw = ImageDraw.Draw(image)
+    if not box.occluded:
+        width = width * 2
     for i in range(width):
         draw.rectangle((box[0] + i, box[1] + i, box[2] - i, box[3] - i),
                        outline=color)
