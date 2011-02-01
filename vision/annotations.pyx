@@ -10,9 +10,9 @@ cdef extern from "math.h":
 
 cdef class Box(object):
 
-    cdef public int xtl, ytl, xbr, ybr
-    cdef public int lost, occluded
-    cdef public int frame
+#    cdef public int xtl, ytl, xbr, ybr
+#    cdef public int lost, occluded
+#    cdef public int frame
 
     """
     A unlabeled bounding box not bound to a frame.
@@ -143,11 +143,13 @@ cdef class Box(object):
         """
         Provides support to serialize the box.
         """
-        return (Box, (self.xtl, self.ytl, self.xbr, self.ybr, self.frame, self.lost, self.occluded))
+        return (Box, (self.xtl, self.ytl, self.xbr, self.ybr,
+            self.frame, self.lost, self.occluded))
 
     def __getitem__(self, a):
         """
         Allows accessing bounding box as if its a tuple
         """
-        tuple = (self.xtl, self.ytl, self.xbr, self.ybr, self.frame, self.lost, self.occluded)
+        tuple = (self.xtl, self.ytl, self.xbr, self.ybr,
+            self.frame, self.lost, self.occluded)
         return tuple[a]
