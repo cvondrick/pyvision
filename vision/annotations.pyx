@@ -10,9 +10,9 @@ cdef extern from "math.h":
 
 cdef class Box(object):
 
-#    cdef public int xtl, ytl, xbr, ybr
-#    cdef public int lost, occluded
-#    cdef public int frame
+    cdef public int xtl, ytl, xbr, ybr
+    cdef public int lost, occluded
+    cdef public int frame
 
     """
     A unlabeled bounding box not bound to a frame.
