@@ -55,6 +55,7 @@ setup(
     classifiers = ['Development Status :: 1 - Planning',
                    'Intended Audience :: Developers'],
     packages = ['vision', 'vision.track', 'vision.ffmpeg'],
+    package_dir = {'vision': 'vision'},
     cmdclass = {"build_ext": build_ext},
     ext_modules = ext_modules,
     ext_package = 'vision'

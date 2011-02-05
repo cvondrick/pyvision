@@ -47,14 +47,14 @@ class PathModel(object):
         negatives = []
         for given in givens:
             logger.debug("Extracting features from frame {0}".format(given.frame))
-            wr = float(dim[0]) / given.get_width()
-            hr = float(dim[1]) / given.get_height()
+            wr = float(dim[0]) / given.width
+            hr = float(dim[1]) / given.height
             im = images[given.frame]
             im = im.resize((int(im.size[0]*wr), int(im.size[1]*hr)))
             mapped = given.transform(wr, hr)
 
             # positives
-            xtl, ytl, xbr, ybr = mapped.position()
+            xtl, ytl, xbr, ybr = mapped[0:4]
             patch = im.crop((xtl-hogbin, ytl-hogbin, xbr+hogbin, ybr+hogbin))
             hogpatch = features.hog(patch, hogbin)[1:-1,1:-1].flatten()
             rgbpatch = features.rgbhist(patch, rgbbin).flatten()

@@ -12,7 +12,7 @@ cdef extern from "math.h":
 log = logging.getLogger("alearn")
 
 def pick(images, path, dim = (40, 40), errortube = 100,
-         double sigma = 0.1, plot = False):
+         double sigma = 0.1, plot = False, pool = None):
     """
     Given a path, picks the most informative frame that we currently lack.
     """
@@ -22,11 +22,14 @@ def pick(images, path, dim = (40, 40), errortube = 100,
 
     log.info("Scoring frames")
     for prev, cur in zip(path, path[1:]):
-        lpath = interpolation.Linear(prev, cur)
-        for box in lpath[1:-1]:
-            framescore = score_frame(box, images, svm, prev, cur, \
-                dim, errortube, sigma, plot)
-            scores.append((framescore, box.frame))
+        lpath = interpolation.Linear(prev, cur)[1:-1]
+        workorders = [(x, images, svm, prev, cur, 
+                       dim, errortube, sigma, plot) for x in lpath]
+        if pool:
+            scores.extend(pool.map(score_frame_do, workorders))
+        else:
+            for workorder in workorders:
+                scores.append(score_frame_do(workorder))
     best = max(scores)[1]
 
     if plot:
@@ -38,6 +41,9 @@ def pick(images, path, dim = (40, 40), errortube = 100,
 
     return best
 
+def score_frame_do(workorder):
+    return score_frame(*workorder), workorder[0].frame
+    
 def score_frame(annotations.Box linearbox, images, svm,
                 annotations.Box previous, annotations.Box current, dim,
                 int errortube, double sigma = 10, plot = False):
@@ -47,8 +53,8 @@ def score_frame(annotations.Box linearbox, images, svm,
     """
     log.info("Scoring frame {0}".format(linearbox.frame))
 
-    wr = (<float>dim[0]) / linearbox.get_width()
-    hr = (<float>dim[1]) / linearbox.get_height()
+    wr = (<float>dim[0]) / linearbox.width
+    hr = (<float>dim[1]) / linearbox.height
 
     im = images[linearbox.frame]
     im = im.resize((int(im.size[0] * wr), int(im.size[1] * hr)))

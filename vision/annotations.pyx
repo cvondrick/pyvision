@@ -37,11 +37,19 @@ cdef class Box(object):
         self.lost = lost
         self.occluded = occluded
 
+    @property
+    def width(self):
+        return self.xbr - self.xtl
+
+    @property
+    def height(self):
+        return self.ybr - self.ytl
+
     def center(self):
         """
         Calculates the center of the bounding box.
         """
-        return self.xtl+self.get_width()/2, self.ytl+self.get_height()/2
+        return self.xtl+self.width/2, self.ytl+self.height/2
 
     def area(self):
         return (self.xbr - self.xtl) * (self.ybr - self.ytl)
@@ -89,8 +97,8 @@ cdef class Box(object):
             yratio = xratio
 
         return Box(self.xtl, self.ytl,
-                   self.xtl + self.get_width() * xratio,
-                   self.ytl + self.get_height() * yratio)
+                   self.xtl + self.width * xratio,
+                   self.ytl + self.height * yratio)
 
     def transform(self, xratio, yratio = None):
         """
