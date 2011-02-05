@@ -1,4 +1,4 @@
-from .. import boundingboxes
+from .. import annotations
 
 def calculateslidingspace(base, offset, frame):
     xstart = max(0, base.xtl - offset) 
@@ -20,5 +20,5 @@ def buildslidingwindows(base, space, skip):
     boxes = []
     for i in range(xstart, xstop, skip):
         for j in range(ystart, ystop, skip):
-            boxes.append(TBox(i, j, i + w, j + h, nextframe))
+            boxes.append(annotations.Box(i, j, i + w, j + h, nextframe))
     return boxes
