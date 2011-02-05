@@ -1,0 +1,4 @@
+pyvision - A concise computer vision toolkit.
+
+To build the system, run: 
+    $ python setup.py build
