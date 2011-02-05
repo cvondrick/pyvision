@@ -5,7 +5,7 @@ import logging
 cimport numpy as np
 cimport cython
 
-log = logging.getLogger("conv")
+log = logging.getLogger("vision.convolution")
 
 cpdef hogrgb(image, filtersize, hogfilter, rgbfilter,
              int hogbin = 8, int rgbbin = 8):

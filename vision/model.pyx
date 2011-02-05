@@ -5,7 +5,7 @@ import random
 import logging
 import numpy
 
-logger = logging.getLogger("model")
+logger = logging.getLogger("vision.model")
 
 cimport numpy
 

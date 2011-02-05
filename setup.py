@@ -23,6 +23,7 @@ ext_modules = [
     Extension("vision.convolution", ["vision/convolution.pyx"]),
     Extension("vision.track.standard", ["vision/track/standard.pyx"]),
     Extension("vision.track.alearn", ["vision/track/alearn.pyx"]),
+    Extension("vision.track.dp", ["vision/track/dp.pyx"]),
     Extension("vision.svm", ["vision/svm.pyx"],
         extra_objects = [root + "liblinear/linear.o",
                          root + "liblinear/tron.o",

@@ -8,7 +8,7 @@ from vision cimport annotations
 cdef extern from "math.h":
     float exp(float n)
 
-log = logging.getLogger("alearn")
+log = logging.getLogger("vision.track.alearn")
 
 def pick(images, path, dim = (40, 40), errortube = 100,
          double sigma = 0.1, plot = False, pool = None):

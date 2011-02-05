@@ -2,7 +2,7 @@ import numpy as np
 cimport numpy as np
 
 import logging
-logger = logging.getLogger("svm")
+logger = logging.getLogger("vision.svm")
 
 cdef extern from *:
     ctypedef char* const_char_ptr "const char*"
