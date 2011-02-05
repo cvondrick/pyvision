@@ -3,8 +3,12 @@ import distutils.extension
 from distutils.extension import Extension as _Extension
 from setuptools import setup
 Extension = distutils.extension.Extension = _Extension
-from Cython.Distutils import build_ext
+from Cython.Distutils import build_ext 
 # end stupid hackery
+
+# these lines will cause html annotation files to be generated
+from Cython.Compiler.Main import default_options as pyrex_default_options
+pyrex_default_options['annotate'] = True
 
 import os
 
