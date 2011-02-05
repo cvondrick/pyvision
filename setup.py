@@ -17,24 +17,24 @@ os.system("make -C vision/liblinear")
 root = os.getcwd() + "/vision/"
 
 ext_modules = [
-    Extension("annotations", ["vision/annotations.pyx", "vision/annotations.pxd"]),
-    Extension("features", ["vision/features.pyx"]),
-    Extension("model", ["vision/model.pyx"]),
-    Extension("convolution", ["vision/convolution.pyx"]),
-    Extension("track.standard", ["vision/track/standard.pyx"]),
-    Extension("track.alearn", ["vision/track/alearn.pyx"]),
-    Extension("svm", ["vision/svm.pyx"],
+    Extension("vision.annotations", ["vision/annotations.pyx", "vision/annotations.pxd"]),
+    Extension("vision.features", ["vision/features.pyx"]),
+    Extension("vision.model", ["vision/model.pyx"]),
+    Extension("vision.convolution", ["vision/convolution.pyx"]),
+    Extension("vision.track.standard", ["vision/track/standard.pyx"]),
+    Extension("vision.track.alearn", ["vision/track/alearn.pyx"]),
+    Extension("vision.svm", ["vision/svm.pyx"],
         extra_objects = [root + "liblinear/linear.o",
                          root + "liblinear/tron.o",
                          root + "liblinear/blas/blas.a"],
         language = "c++"),
-    Extension("ffmpeg.extract",
+    Extension("vision.ffmpeg.extract",
         sources = ["vision/ffmpeg/extract.pyx"],
-        include_dirs = [root + 'ffmpeg/'],
-        library_dirs = [root + 'ffmpeg/'],
-        libraries = ['avformat', 'avcodec', 'avutil', 'swscale'],
-        extra_objects = [root + 'ffmpeg/_extract.o'],
-        language = 'c++')
+        include_dirs = [root + "ffmpeg/"],
+        library_dirs = [root + "ffmpeg/"],
+        libraries = ["avformat", "avcodec", "avutil", "swscale"],
+        extra_objects = [root + "ffmpeg/_extract.o"],
+        language = "c++")
     ]
 
 for e in ext_modules:
@@ -42,8 +42,8 @@ for e in ext_modules:
         "boundscheck": False,
         "cdivision": True,
         "infer_types": True}
-    e.include_dirs.append(".")
-    e.extra_compile_args = ['-w']
+#    e.include_dirs.append(".")
+    e.extra_compile_args = ["-w"]
 
 setup(
     name = "pyvision",
@@ -52,11 +52,10 @@ setup(
     description = "A concise computer vision toolkit",
     license = "MIT",
     version = "0.0.3",
-    classifiers = ['Development Status :: 1 - Planning',
-                   'Intended Audience :: Developers'],
-    packages = ['vision', 'vision.track', 'vision.ffmpeg'],
-    package_dir = {'vision': 'vision'},
+    classifiers = ["Development Status :: 1 - Planning",
+                   "Intended Audience :: Developers"],
+    packages = ["vision", "vision.track", "vision.ffmpeg"],
     cmdclass = {"build_ext": build_ext},
     ext_modules = ext_modules,
-    ext_package = 'vision'
+    #ext_package = "vision"
 )

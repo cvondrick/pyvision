@@ -4,7 +4,6 @@ import interpolation
 
 cimport numpy
 from vision cimport annotations
-import matplotlib.pyplot as plt
 
 cdef extern from "math.h":
     float exp(float n)
@@ -33,6 +32,7 @@ def pick(images, path, dim = (40, 40), errortube = 100,
     best = max(scores)[1]
 
     if plot:
+        import matplotlib.pyplot as plt
         log.info("Saving score plot")
         plt.close()
         plt.plot([x[1] for x in scores], [x[0] for x in scores])
@@ -113,6 +113,7 @@ def score_frame(annotations.Box linearbox, images, svm,
             dscoreim[i,j] = localscore
 
     if plot:
+        import matplotlib.pyplot as plt
         plt.subplot(221)
         plt.set_cmap("gray")
         plt.imshow(dprobim.transpose() / normalizer)
