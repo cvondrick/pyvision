@@ -9,17 +9,14 @@ cdef extern from "math.h":
     double sqrt(double i)
 
 cdef class Box(object):
-
-    cdef public int xtl, ytl, xbr, ybr
-    cdef public int lost, occluded
-    cdef public int frame
-
     """
     A unlabeled bounding box not bound to a frame.
     """
     @cython.profile(False)
     def __init__(self, int xtl, int ytl, int xbr, int ybr, int frame = 0, int lost = 0, int occluded = 0):
-        """Initializes the bounding box."""
+        """
+        Initializes the bounding box.
+        """
         if xbr <= xtl:
             raise TypeError("xbr must be > xtl")
         elif ybr <= ytl:
@@ -45,12 +42,14 @@ cdef class Box(object):
     def height(self):
         return self.ybr - self.ytl
 
+    @property
     def center(self):
         """
         Calculates the center of the bounding box.
         """
         return self.xtl+self.width/2, self.ytl+self.height/2
 
+    @property
     def area(self):
         return (self.xbr - self.xtl) * (self.ybr - self.ytl)
 
