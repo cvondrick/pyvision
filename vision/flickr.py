@@ -129,7 +129,8 @@ def pascal(tags, range = (2003, 2010)):
     while True:
         start = int(time.mktime([range[0],1,1,0,0,0,0,0,-1]))
         stop  = int(time.mktime([range[1],12,31,23,59,59,0,0,-1]))
-        rtime = time.localtime(random.randint(start, stop))[0:3] + (0, 0, 0, 0, 0, -1)
+        rtime = (time.localtime(random.randint(start, stop))[0:3] +
+                 (0, 0, 0, 0, 0, -1))
         rtime = time.mktime(rtime)
         stm, etm = int(rtime), int(rtime + 86400)
 
@@ -191,13 +192,16 @@ def scrape(iterator, location, limit):
     Downloads up to the limit of all photos in an iterator.
     """
     for photo in iterator:
-        filepath = "{0}/{1}/{2}.jpg".format(location, photo.flickrid % 100, photo.flickrid)
+        filepath = "{0}/{1}/{2}.jpg".format(location,
+                                            photo.flickrid % 100,
+                                            photo.flickrid)
         if os.path.exists(filepath):
             log.info("Skipping duplicate {0}".format(photo.flickrid))
             continue
 
         try:
-            log.info("Downloading {0} ({1})".format(photo.flickrid, photo.format))
+            log.info("Downloading {0} ({1})".format(photo.flickrid,
+                                                    photo.format))
             image = photo.download()
             try:
                 image.save(filepath)

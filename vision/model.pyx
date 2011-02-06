@@ -49,6 +49,14 @@ class PathModel(object):
         """
         Extracts features from a path.
         """
+        cdef int dimw = dim[0], dimh = dim[1]
+        cdef int imw, imh
+        cdef int i, j, xtl, ytl, xbr, ybr
+        cdef double wr, hr
+        cdef annotations.Box given
+
+        cdef numpy.ndarray[ndim=3, dtype=numpy.double_t] hogim
+
         positives = []
         negatives = []
         for given in givens:
@@ -58,6 +66,7 @@ class PathModel(object):
             hr = float(dim[1]) / given.height
             im = images[given.frame]
             im = im.resize((int(im.size[0]*wr), int(im.size[1]*hr)))
+            imw, imh = im.size
             mapped = given.transform(wr, hr)
 
             # positives
@@ -67,20 +76,25 @@ class PathModel(object):
             rgbpatch = features.rgbhist(patch, rgbbin).flatten()
             positives.append(numpy.append(hogpatch, rgbpatch))
 
+            logger.debug("Extracting negatives")
+
             # negatives
             hogim = features.hog(im, hogbin)
-            for i in range(0, im.size[0]-dim[0], bgskip):
-                for j in range(0, im.size[1]-dim[1], bgskip):
+            for i from 0 <= i < imw-dimw by bgskip:
+                for j from 0 <= j < imh-dimh by bgskip:
                     if not annotations.Box(i/wr,
                                            j/hr, 
-                                           (i + dim[0])/wr,
-                                           (j + dim[1])/hr).intersects(given):
+                                           (i + dimw)/wr,
+                                           (j + dimh)/hr).intersects(given):
 
-                        hogpatch = hogim[j/hogbin:(j+dim[1])/hogbin-2,
-                                         i/hogbin:(i+dim[0])/hogbin-2,
-                                         :].flatten()
-                        rgbpatch = features.rgbhist(
-                            im.crop((i, j, i+dim[0], j+dim[1]))).flatten()
+                        hogpatch = hogim[j/hogbin:(j+dimh)/hogbin-2,
+                                         i/hogbin:(i+dimw)/hogbin-2, :]
+                        hogpatch = hogpatch.flatten()
+
+                        rgbpatchregion = (i, j, i+dimw, j+dimh)
+                        rgbpatch = features.rgbhist(im.crop(rgbpatchregion))
+                        rgbpatch = rgbpatch.flatten()
+
                         negatives.append(numpy.append(hogpatch, rgbpatch))
         if len(negatives) > bgsize:
             negatives = random.sample(negatives, int(bgsize))

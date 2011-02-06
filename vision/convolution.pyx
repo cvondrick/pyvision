@@ -10,20 +10,19 @@ log = logging.getLogger("vision.convolution")
 cpdef hogrgb(image, filtersize, hogfilter, rgbfilter,
              int hogbin = 8, int rgbbin = 8):
     """
-    Efficiently convolves a filter around an image for HOG and
-    RGB filters.
+    Efficiently convolves a filter around an image for HOG and RGB filters.
 
-    Only computes features in the valid region of the image and
-    returns a score matrix. The filtersize should be the size of
-    the templated to score with, and must match with hogfilter.
+    Only computes features in the valid region of the image and returns a score
+    matrix. The filtersize should be the size of the templated to score with,
+    and must match with hogfilter.
 
     - image should be an Python Image Library image.
-    - filtersize should be a 2-tuple of (width,height) sizes for
-    the template filter.
-    - hogfilter should be a (width/hogbin-2, height/hogbin-2, 13) 
-    numpy array of the learned HOG weights.
-    - rgbfilter should be a rgbin^3 length matrix of the learned
-    RGB histogram weights.
+    - filtersize should be a 2-tuple of (width,height) sizes for the template
+      filter.
+    - hogfilter should be a (width/hogbin-2, height/hogbin-2, 13) numpy array
+      of the learned HOG weights.
+    - rgbfilter should be a rgbin^3 length matrix of the learned RGB histogram
+      weights.
     """
 
     # initialize some useful stuff
@@ -32,9 +31,14 @@ cpdef hogrgb(image, filtersize, hogfilter, rgbfilter,
     cdef np.ndarray[np.double_t, ndim=3] data
     data = np.asarray(image, dtype=np.double)
 
-    log.debug("Convolving {width} x {height} image with {filter[0]} x {filter[1]} filter".format(width=width, height=height, filter=filtersize))
-    log.debug("HOG filter is {0} with bin size {1}".format(hogfilter.shape, hogbin))
-    log.debug("RGB filter is {0} with bin size {1}".format(rgbfilter.shape, rgbbin))
+    log.debug("Convolving {width} x {height} image with "
+              "{filter[0]} x {filter[1]} filter".format(width=width,
+                                                        height=height,
+                                                        filter=filtersize))
+    log.debug("HOG filter is {0} with bin size {1}".format(hogfilter.shape,
+                                                           hogbin))
+    log.debug("RGB filter is {0} with bin size {1}".format(rgbfilter.shape,
+                                                           rgbbin))
 
     # efficiently precompute hog features
     cdef np.ndarray[ndim=3, dtype=np.double_t] hogfeat

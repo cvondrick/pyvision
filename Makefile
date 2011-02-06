@@ -1,2 +1,2 @@
-make :
+pyvision :
 	python setup.py build

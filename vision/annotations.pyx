@@ -12,7 +12,8 @@ cdef class Box(object):
     A unlabeled bounding box not bound to a frame.
     """
     @cython.profile(False)
-    def __init__(self, int xtl, int ytl, int xbr, int ybr, int frame = 0, int lost = 0, int occluded = 0):
+    def __init__(self, int xtl, int ytl, int xbr, int ybr,
+                 int frame = 0, int lost = 0, int occluded = 0):
         """
         Initializes the bounding box.
         """

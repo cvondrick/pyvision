@@ -13,7 +13,8 @@ pyrex_default_options['annotate'] = True
 import os
 
 print "building ffmpeg/_extract.o"
-os.system("g++ -Wno-deprecated-declarations -D__STDC_CONSTANT_MACROS -c -O3 -fPIC vision/ffmpeg/_extract.c -o vision/ffmpeg/_extract.o")
+os.system("g++ -Wno-deprecated-declarations -D__STDC_CONSTANT_MACROS -c -O3 "
+          "-fPIC vision/ffmpeg/_extract.c -o vision/ffmpeg/_extract.o")
 
 print "building liblinear"
 os.system("make -C vision/liblinear")
@@ -21,7 +22,8 @@ os.system("make -C vision/liblinear")
 root = os.getcwd() + "/vision/"
 
 ext_modules = [
-    Extension("vision.annotations", ["vision/annotations.pyx", "vision/annotations.pxd"]),
+    Extension("vision.annotations", ["vision/annotations.pyx",
+                                     "vision/annotations.pxd"]),
     Extension("vision.features", ["vision/features.pyx"]),
     Extension("vision.model", ["vision/model.pyx"]),
     Extension("vision.convolution", ["vision/convolution.pyx"]),

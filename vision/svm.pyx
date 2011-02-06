@@ -46,7 +46,13 @@ cdef extern from "liblinear/linear.h":
     model *liblinear_train "train" (problem *prob, parameter *param) nogil
 
     cdef enum solver_type:
-        L2_LR, L2R_L2LOSS_SVC_DUAL, L2R_L2LOSS_SVC, L2R_L1LOSS_SVC_DUAL, MCSVM_CS, L1R_L2LOSS_SVC, L1R_LR
+        L2_LR,
+        L2R_L2LOSS_SVC_DUAL,
+        L2R_L2LOSS_SVC,
+        L2R_L1LOSS_SVC_DUAL,
+        MCSVM_CS,
+        L1R_L2LOSS_SVC,
+        L1R_LR
 
 class Model(object):
     """

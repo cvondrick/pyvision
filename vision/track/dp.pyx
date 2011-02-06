@@ -22,9 +22,11 @@ cpdef track(annotations.Box start, annotations.Box stop, svm, images,
     optimal path from start to stop using the SVM across the frames.
 
     - slidingskip dictates how many pixels to move the sliding window.
-    - slidingsearchwidth dictates how many pixels to deviate from the linear path
+    - slidingsearchwidth dictates how many pixels to deviate from the linear
+      path
     - pairwiseradius is the acceptable radius to move between frames
-    - search over resizes resizestart <= r < resizestop, skipping by resizeincrement
+    - search over resizes resizestart <= r < resizestop, skipping by
+      resizeincrement
     - lineardeviation is proportionality constant for deviating from linear path
     - upperthreshold is the maximum score
     - dim is the size of the template to score with (probably should be removed)
@@ -42,7 +44,7 @@ cpdef track(annotations.Box start, annotations.Box stop, svm, images,
     velocity = linearpath[0].get_distance(linearpath[1])
     if velocity >= pairwiseradius:
         pairwiseradius = int(velocity * 1.5)
-        logging.warning("Adjusting pairwise radius to: {0}".format(pairwiseradius))
+        logging.warning("Adjusting pairwise radius")
 
     root = Node(start)
     pltable = NodeMatrix(width, height, slidingskip)
@@ -53,11 +55,15 @@ cpdef track(annotations.Box start, annotations.Box stop, svm, images,
         cltable = NodeMatrix(width, height, slidingskip)
         pairwiseterms = pltable.pairwise_build(pairwiseradius)
         im = images[linearbox.frame]
-        progress = (linearbox.frame - start.frame) / float(stop.frame - start.frame)
+        progress = ((linearbox.frame - start.frame) /
+                    float(stop.frame - start.frame))
 
-        log.info("Scoring frame {0} ({1}%)".format(linearbox.frame, int(progress * 100)))
+        log.info("Scoring frame {0} ({1}%)".format(linearbox.frame,
+                                                   int(progress * 100)))
 
-        for resizeratio in decimal_range(resizestart, resizestop, resizeincrement):
+        for resizeratio in decimal_range(resizestart,
+                                         resizestop,
+                                         resizeincrement):
             resizedbox = linearbox.resize(resizeratio)
             if resizedbox.xbr > width:
                 resizedbox.xbr = width
@@ -68,10 +74,13 @@ cpdef track(annotations.Box start, annotations.Box stop, svm, images,
             hr = dim[1] / float(resizedbox.get_height())
             rimage = im.resize((int(width * wr), int(height * hr)), 2)
 
-            slidingspace = annotations.calculateslidingspace(resizedbox, slidingsearchwidth, (width, height))
-            slidingwindows = annotations.buildslidingwindows(resizedbox, slidingspace, slidingskip)
+            slidingspace = annotations.calculateslidingspace(
+                resizedbox, slidingsearchwidth, (width, height))
+            slidingwindows = annotations.buildslidingwindows(
+                resizedbox, slidingspace, slidingskip)
 
-            costim = convolution.hogrgb(rimage, dim, svm.hogweights(), svm.rgbweights())
+            costim = convolution.hogrgb(rimage, dim, svm.hogweights(),
+                                        svm.rgbweights())
 
             #plt.set_cmap("gray")
             #plt.imshow(costim.transpose())
@@ -79,16 +88,24 @@ cpdef track(annotations.Box start, annotations.Box stop, svm, images,
             #plt.clf()
 
             for slidingbox in slidingwindows:
-                pairwisenode = pairwiseterms.get(slidingbox.xtl, slidingbox.ytl)
+                pairwisenode = pairwiseterms.get(slidingbox.xtl,
+                                                 slidingbox.ytl)
                 if pairwisenode:
-                    cost = costim[<int>(slidingbox.xtl*wr), <int>(slidingbox.ytl*hr)]
-                    cost += lineardeviation * (slidingbox.xtl - linearbox.xtl) * (slidingbox.xtl - linearbox.xtl)
-                    cost += lineardeviation * (slidingbox.ytl - linearbox.ytl) * (slidingbox.ytl - linearbox.ytl)
+                    cost = costim[<int>(slidingbox.xtl*wr),
+                                  <int>(slidingbox.ytl*hr)]
+                    cost += (lineardeviation * 
+                             (slidingbox.xtl - linearbox.xtl) * 
+                             (slidingbox.xtl - linearbox.xtl))
+                    cost += (lineardeviation * 
+                             (slidingbox.ytl - linearbox.ytl) * 
+                             (slidingbox.ytl - linearbox.ytl))
                     if cost > upperthreshold:
                         cost = upperthreshold
 
-                    if not cltable.contains(slidingbox.xtl, slidingbox.ytl) or cltable.get(slidingbox.xtl, slidingbox.ytl).cost > cost:
-                        node = Node(slidingbox, cost = cost, previous = pairwisenode)
+                    if (not cltable.contains(slidingbox.xtl, slidingbox.ytl) or 
+                       cltable.get(slidingbox.xtl, slidingbox.ytl).cost > cost):
+                        node = Node(slidingbox, cost = cost,
+                                    previous = pairwisenode)
                         cltable.set(slidingbox.xtl, slidingbox.ytl, node)
         pltable.dump(linearbox.frame)
         pltable = cltable
@@ -112,7 +129,8 @@ cdef class Node(object):
     effect, this is a relation between a box and the cost."""
     
     @cython.profile(False)
-    def __init__(self, annotations.Box box, double cost = 0, Node previous = None):
+    def __init__(self, annotations.Box box, double cost = 0,
+                 Node previous = None):
         self.box = box
         self.cost = cost
         self.previous = previous
@@ -158,7 +176,9 @@ cdef class NodeMatrix(object):
                     pstop = self.height
                 for y from pstart <= y < pstop by self.skip:
                     if self.contains(i, y):
-                        if not fpass.contains(i, j) or self.get(i, y).total_cost < fpass.get(i, j).total_cost:
+                        if (not fpass.contains(i, j) or
+                            self.get(i, y).total_cost <
+                            fpass.get(i, j).total_cost):
                             fpass.set(i, j, self.get(i, y))
 
         # horizontal pass
@@ -173,7 +193,9 @@ cdef class NodeMatrix(object):
                     pstop = self.width
                 for x from pstart <= x < pstop by self.skip:
                     if fpass.contains(x, j):
-                        if not pairwises.contains(i, j) or fpass.get(x, j).total_cost < pairwises.get(i, j).total_cost:
+                        if (not pairwises.contains(i, j) or 
+                            fpass.get(x, j).total_cost <
+                            pairwises.get(i, j).total_cost):
                             pairwises.set(i, j, fpass.get(x, j))
 
         return pairwises
