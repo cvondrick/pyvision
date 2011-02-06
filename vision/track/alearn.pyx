@@ -53,8 +53,8 @@ def score_frame(annotations.Box linearbox, images, svm,
     """
     log.info("Scoring frame {0}".format(linearbox.frame))
 
-    wr = (<float>dim[0]) / linearbox.width
-    hr = (<float>dim[1]) / linearbox.height
+    cdef double wr = (<float>dim[0]) / linearbox.width
+    cdef double hr = (<float>dim[1]) / linearbox.height
 
     im = images[linearbox.frame]
     im = im.resize((int(im.size[0] * wr), int(im.size[1] * hr)))
@@ -79,7 +79,8 @@ def score_frame(annotations.Box linearbox, images, svm,
     if pstopy > h:
         pstopy = h
 
-    framearea = (w/wr) * (h/hr)
+    cdef double framearea = (w/wr) * (h/hr)
+    cdef int framedifference = current.frame - previous.frame
     score = 0
     normalizer = 0
 
@@ -87,19 +88,21 @@ def score_frame(annotations.Box linearbox, images, svm,
     cdef numpy.ndarray[numpy.double_t, ndim=2] dprobim = numpy.zeros((w, h))
     cdef numpy.ndarray[numpy.double_t, ndim=2] dscoreim = numpy.zeros((w, h))
 
+    cdef double lineardiffy, lineardiffx, lineardiff
+    cdef int i, j
     for i in range(pstartx, pstopx):
         for j in range(pstarty, pstopy): 
             # calculate area difference through cross product
-            lineardiffy  = (current.xtl - previous.xtl) * \
-                (linearbox.frame - previous.frame)
-            lineardiffy -= (i / wr      - previous.xtl) * \
-                (current.frame   - previous.frame)
-            lineardiffx  = (current.ytl - previous.ytl) * \
-                (linearbox.frame - previous.frame)
-            lineardiffx -= (j / hr      - previous.ytl) * \
-                (current.frame   - previous.frame)
-            lineardiff   = lineardiffx * lineardiffx + \
-                lineardiffy * lineardiffy 
+            lineardiffy  = current.xtl - previous.xtl
+            lineardiffy *= linearbox.frame - previous.frame
+            lineardiffy -= (i / wr - previous.xtl) * framedifference
+
+            lineardiffx  = current.ytl - previous.ytl
+            lineardiffx *= linearbox.frame - previous.frame
+            lineardiffx -= (j / hr - previous.ytl) * framedifference
+
+            lineardiff   = lineardiffx * lineardiffx
+            lineardiff  += lineardiffy * lineardiffy 
 
             # compute local score
             matchscore   = exp(-costim[i,j] / sigma)
