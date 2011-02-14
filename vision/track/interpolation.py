@@ -1,4 +1,7 @@
 from ..annotations import *
+import logging
+
+logger = logging.getLogger("vision.track.interpolation")
 
 def Linear(source, target):
     """
@@ -30,6 +33,11 @@ def LinearFill(path, method = Linear):
     """
     Takes a sparse path and performs linear interpolation between the points.
     """
+    if logger.isEnabledFor(logging.DEBUG):
+        logging.debug("Linear fill for path:")
+        for item in path:
+            logging.debug(item)
+        
     result = []
     for x, y in zip(path, path[1:]):
         result.extend(method(x, y)[:-1])

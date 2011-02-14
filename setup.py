@@ -48,7 +48,8 @@ for e in ext_modules:
     e.pyrex_directives = {
         "boundscheck": False,
         "cdivision": True,
-        "infer_types": True}
+        "infer_types": True,
+        "embedsignature": True}
 #    e.include_dirs.append(".")
     e.extra_compile_args = ["-w"]
 

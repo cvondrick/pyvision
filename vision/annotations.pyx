@@ -84,7 +84,7 @@ cdef class Box(object):
         if xdiff <= 0 or ydiff <= 0:
             return 0
 
-        uni = self.area() + oth.area() - xdiff * ydiff
+        uni = self.area + oth.area - xdiff * ydiff
         return float(xdiff * ydiff) / float(uni)
 
     def resize(self, xratio, yratio = None):
@@ -114,9 +114,9 @@ cdef class Box(object):
         """
         Returns a string representation.
         """
-        return "Box({0}, {1}, {2}, {3}, {4}, {5})".format(
+        return "Box({0}, {1}, {2}, {3}, {4}, {5}, {6})".format(
             self.xtl, self.ytl, self.xbr, self.ybr,
-            self.frame, self.lost)
+            self.frame, self.lost, self.occluded)
 
     def __repr__(self):
         """
