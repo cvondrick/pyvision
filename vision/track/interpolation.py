@@ -34,9 +34,9 @@ def LinearFill(path, method = Linear):
     Takes a sparse path and performs linear interpolation between the points.
     """
     if logger.isEnabledFor(logging.DEBUG):
-        logging.debug("Linear fill for path:")
+        logger.debug("Linear fill for path:")
         for item in path:
-            logging.debug(item)
+            logger.debug(item)
         
     result = []
     for x, y in zip(path, path[1:]):

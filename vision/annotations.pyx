@@ -158,5 +158,5 @@ cdef class Box(object):
         Allows accessing bounding box as if its a tuple
         """
         tuple = (self.xtl, self.ytl, self.xbr, self.ybr,
-            self.frame, self.lost, self.occluded)
+                 self.frame, self.lost, self.occluded)
         return tuple[a]
