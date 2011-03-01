@@ -110,6 +110,15 @@ cdef class Box(object):
         return Box(self.xtl * xratio, self.ytl * yratio,
                    self.xbr * xratio, self.ybr * yratio)
 
+    def average(self, other):
+        return Box((self.xtl + other.xtl) / 2,
+                   (self.ytl + other.ytl) / 2,
+                   (self.xbr + other.xbr) / 2,
+                   (self.ybr + other.ybr) / 2,
+                   (self.frame + other.frame) / 2,
+                   self.lost or other.lost,
+                   self.occluded or other.occluded)
+
     def __str__(self):
         """
         Returns a string representation.
