@@ -96,8 +96,8 @@ cdef class Box(object):
             yratio = xratio
 
         return Box(self.xtl, self.ytl,
-                   self.xtl + self.width * xratio,
-                   self.ytl + self.height * yratio)
+                   self.xtl + <int> (self.width * xratio),
+                   self.ytl + <int> (self.height * yratio))
 
     def transform(self, xratio, yratio = None):
         """
@@ -107,8 +107,8 @@ cdef class Box(object):
         if yratio is None:
             yratio = xratio
 
-        return Box(self.xtl * xratio, self.ytl * yratio,
-                   self.xbr * xratio, self.ybr * yratio)
+        return Box(<int> (self.xtl * xratio), <int> (self.ytl * yratio),
+                   <int> (self.xbr * xratio), <int> (self.ybr * yratio))
 
     def average(self, other):
         return Box((self.xtl + other.xtl) / 2,
