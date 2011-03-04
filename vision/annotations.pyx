@@ -108,7 +108,8 @@ cdef class Box(object):
             yratio = xratio
 
         return Box(<int> (self.xtl * xratio), <int> (self.ytl * yratio),
-                   <int> (self.xbr * xratio), <int> (self.ybr * yratio))
+                   <int> (self.xbr * xratio), <int> (self.ybr * yratio),
+                   self.frame, self.lost, self.occluded)
 
     def average(self, other):
         return Box((self.xtl + other.xtl) / 2,
