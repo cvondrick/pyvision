@@ -3,3 +3,4 @@ cdef class Box(object):
     cdef public int lost
     cdef public int occluded
     cdef public int frame
+    cdef public int generated

@@ -13,7 +13,8 @@ cdef class Box(object):
     """
     @cython.profile(False)
     def __init__(self, int xtl, int ytl, int xbr, int ybr,
-                 int frame = 0, int lost = 0, int occluded = 0):
+                 int frame = 0, int lost = 0, int occluded = 0,
+                 int generated = 0):
         """
         Initializes the bounding box.
         """
@@ -33,6 +34,7 @@ cdef class Box(object):
         self.frame = frame
         self.lost = lost
         self.occluded = occluded
+        self.generated = generated
 
     @property
     def width(self):
@@ -97,7 +99,8 @@ cdef class Box(object):
 
         return Box(self.xtl, self.ytl,
                    self.xtl + <int> (self.width * xratio),
-                   self.ytl + <int> (self.height * yratio))
+                   self.ytl + <int> (self.height * yratio),
+                   self.frame, self.lost, self.occluded, self.generated)
 
     def transform(self, xratio, yratio = None):
         """
@@ -109,7 +112,7 @@ cdef class Box(object):
 
         return Box(<int> (self.xtl * xratio), <int> (self.ytl * yratio),
                    <int> (self.xbr * xratio), <int> (self.ybr * yratio),
-                   self.frame, self.lost, self.occluded)
+                   self.frame, self.lost, self.occluded, self.generated)
 
     def average(self, other):
         return Box((self.xtl + other.xtl) / 2,
@@ -118,15 +121,16 @@ cdef class Box(object):
                    (self.ybr + other.ybr) / 2,
                    (self.frame + other.frame) / 2,
                    self.lost or other.lost,
-                   self.occluded or other.occluded)
+                   self.occluded or other.occluded,
+                   self.generated)
 
     def __str__(self):
         """
         Returns a string representation.
         """
-        return "Box({0}, {1}, {2}, {3}, {4}, {5}, {6})".format(
+        return "Box({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7})".format(
             self.xtl, self.ytl, self.xbr, self.ybr,
-            self.frame, self.lost, self.occluded)
+            self.frame, self.lost, self.occluded, self.generated)
 
     def __repr__(self):
         """
@@ -161,12 +165,12 @@ cdef class Box(object):
         Provides support to serialize the box.
         """
         return (Box, (self.xtl, self.ytl, self.xbr, self.ybr,
-            self.frame, self.lost, self.occluded))
+            self.frame, self.lost, self.occluded, self.generated))
 
     def __getitem__(self, a):
         """
         Allows accessing bounding box as if its a tuple
         """
         tuple = (self.xtl, self.ytl, self.xbr, self.ybr,
-                 self.frame, self.lost, self.occluded)
+                 self.frame, self.lost, self.occluded, self.generated)
         return tuple[a]
