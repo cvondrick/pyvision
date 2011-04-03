@@ -1,5 +1,6 @@
 import math
 import numpy
+import re
 
 cimport numpy
 cimport cython
@@ -152,7 +153,7 @@ cdef class Box(object):
             self.frame is other.frame and \
             self.lost is other.lost
 
-        if t == 0:   return self.frame < other.frame
+        if   t == 0: return self.frame < other.frame
         elif t == 1: return self.frame <= other.frame
         elif t == 2: return equality
         elif t == 3: return not equality
@@ -174,3 +175,28 @@ cdef class Box(object):
         tuple = (self.xtl, self.ytl, self.xbr, self.ybr,
                  self.frame, self.lost, self.occluded, self.generated)
         return tuple[a]
+
+def readpaths(pointer):
+    """
+    Reads a path file, typically coming from vatic.
+    """
+    paths = []
+    lastid = None
+    currentpath = []
+    currentlabel = None
+    for line in pointer:
+        line = re.match("(\d+) (\d+) (\d+) (\d+) (\d+) (\d+) (\d+) (\d+) "
+                        "(\d+) \"(.+)\"", line)
+        id, xtl, ytl, xbr, ybr, frame, lost, occ, gen, label = line.groups()
+        box = Box(int(xtl), int(ytl), int(xbr), int(ybr),
+                  int(frame), int(lost), int(occ), int(gen))
+        if lastid != id:
+            if lastid != None:
+                paths.append((currentlabel, currentpath))
+            lastid = id
+            currentpath = []
+            currentlabel = None
+        currentpath.append(box)
+        currentlabel = label
+    paths.append((currentlabel, currentpath))
+    return paths
