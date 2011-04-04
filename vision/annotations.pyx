@@ -1,6 +1,7 @@
 import math
 import numpy
 import re
+import Image
 
 cimport numpy
 cimport cython
@@ -200,3 +201,16 @@ def readpaths(pointer):
         currentlabel = label
     paths.append((currentlabel, currentpath))
     return paths
+
+class frameiterator(object):
+    """
+    A simple iterator to produce frames.
+    """
+    def __init__(self, base):
+        self.base = base
+    def __getitem__(self, frame):
+        l1 = frame / 10000
+        l2 = frame / 100
+        path = "{0}/{1}/{2}.jpg".format(l1, l2, frame)
+        path = "{0}/{1}".format(self.base, path)
+        return Image.open(path)

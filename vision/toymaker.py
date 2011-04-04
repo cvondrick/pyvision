@@ -1,7 +1,7 @@
 import Image
 from ImageDraw import Draw
 import random
-import boundingboxes
+from vision.annotations import *
 
 class Geppetto(object):
     """
@@ -148,9 +148,9 @@ class Toy(object):
         truth = []
         for f, pos in enumerate(self.positions):
             if pos:
-                truth.append(boundingboxes.LBox(pos[0], pos[1], pos[0] + self.size[0], pos[1] + self.size[1], f, 0))
+                truth.append(Box(pos[0], pos[1], pos[0] + self.size[0], pos[1] + self.size[1], f, 0))
             else:
-                truth.append(boundingboxes.LBox(0, 0, 1, 1, f, 1))
+                truth.append(Box(0, 0, 1, 1, f, 1))
         return truth
 
 class Rectangle(Toy):

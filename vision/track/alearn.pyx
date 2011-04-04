@@ -11,17 +11,19 @@ cdef extern from "math.h":
 log = logging.getLogger("vision.track.alearn")
 
 def pick(images, path, dim = (40, 40), errortube = 100,
-         double sigma = 0.1, plot = False, pool = None):
+         double sigma = 0.1, bgskip = 4, bgsize = 5e4,
+         skip = 1, plot = False, pool = None):
     """
     Given a path, picks the most informative frame that we currently lack.
     """
     log.info("Picking most informative frame through active learning")
-    svm = model.PathModel(images, path, dim = dim)
+    svm = model.PathModel(images, path, dim = dim,
+                          bgskip = bgskip, bgsize = bgsize)
     scores = []
 
     log.info("Scoring frames")
     for prev, cur in zip(path, path[1:]):
-        lpath = interpolation.Linear(prev, cur)[1:-1]
+        lpath = interpolation.Linear(prev, cur)[1:-1:skip]
         workorders = [(x, images, svm, prev, cur, 
                        dim, errortube, sigma, plot) for x in lpath]
         if pool:
