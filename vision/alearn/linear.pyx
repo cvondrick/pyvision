@@ -1,6 +1,6 @@
 import math, logging, multiprocessing, numpy
 from vision import annotations, convolution, model
-import interpolation
+from vision.track import interpolation
 
 cimport numpy
 from vision cimport annotations

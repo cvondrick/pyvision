@@ -28,7 +28,7 @@ ext_modules = [
     Extension("vision.model", ["vision/model.pyx"]),
     Extension("vision.convolution", ["vision/convolution.pyx"]),
     Extension("vision.track.standard", ["vision/track/standard.pyx"]),
-    Extension("vision.track.alearn", ["vision/track/alearn.pyx"]),
+    Extension("vision.alearn.linear", ["vision/alearn/linear.pyx"]),
     Extension("vision.track.dp", ["vision/track/dp.pyx",
                                   "vision/track/dp.pxd"]),
     Extension("vision.svm", ["vision/svm.pyx"],
@@ -63,7 +63,7 @@ setup(
     version = "0.0.3",
     classifiers = ["Development Status :: 1 - Planning",
                    "Intended Audience :: Developers"],
-    packages = ["vision", "vision.track", "vision.ffmpeg"],
+    packages = ["vision", "vision.track", "vision.ffmpeg", "vision.alearn"],
     cmdclass = {"build_ext": build_ext},
     ext_modules = ext_modules,
     #ext_package = "vision"
