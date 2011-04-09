@@ -31,7 +31,8 @@ def pick(images, path, dim = (40, 40), errortube = 100,
         else:
             for workorder in workorders:
                 scores.append(score_frame_do(workorder))
-    best = max(scores)[1]
+
+    best = max([min(x) for x in zip(*[scores[y:] for y in range(25)])])[1]
 
     if plot:
         import matplotlib.pyplot as plt
@@ -39,7 +40,7 @@ def pick(images, path, dim = (40, 40), errortube = 100,
         plt.close()
         plt.plot([x[1] for x in scores], [x[0] for x in scores])
         plt.grid()
-        plt.savefig("tmp/scoreplot.png")
+        plt.savefig("{0}/scoreplot.png".format(plot))
 
     return best
 
@@ -137,7 +138,7 @@ def score_frame(annotations.Box linearbox, images, svm,
         plt.subplot(224)
         plt.imshow(numpy.asarray(im))
         plt.title("data")
-        plt.savefig("tmp/prob{0}.png".format(linearbox.frame))
+        plt.savefig("{0}/prob{1}.png".format(plot, linearbox.frame))
         plt.clf()
 
     return score / (normalizer * framearea)

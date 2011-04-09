@@ -55,6 +55,9 @@ class Geppetto(object):
         """
         return self.render(frame)
 
+    def __len__(self):
+        return self.frames
+
 class Toy(object):
     """
     An abstract toy class.

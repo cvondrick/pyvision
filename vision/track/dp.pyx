@@ -9,13 +9,15 @@ cimport numpy
 cimport cython
 from vision cimport annotations
 
+#import matplotlib.pyplot as plt
+
 log = logging.getLogger("track")
 
 cpdef track(annotations.Box start, annotations.Box stop, svm, images,
-    int slidingskip          = 3,    int slidingsearchwidth   = 300,
-    int pairwiseradius       = 10,   float resizestart        = 1.0,
+    int slidingskip          = 3,    int slidingsearchwidth   = 600,
+    int pairwiseradius       = 30,   float resizestart        = 1.0,
     float resizestop         = 1.1,  float resizeincrement    = 0.2,
-    float lineardeviation    = 0.01, float upperthreshold     = 10,
+    float lineardeviation    = 0.00, float upperthreshold     = 10,
     dim = (40, 40)):
     """
     Performs dynamic programming via the Viterbi algorithm. Finds the globally
@@ -41,7 +43,7 @@ cpdef track(annotations.Box start, annotations.Box stop, svm, images,
     linearpath = interpolation.Linear(start, stop)
     width, height = images[start.frame].size
 
-    velocity = linearpath[0].get_distance(linearpath[1])
+    velocity = linearpath[0].distance(linearpath[1])
     if velocity >= pairwiseradius:
         pairwiseradius = int(velocity * 1.5)
         logging.warning("Adjusting pairwise radius")
@@ -70,14 +72,16 @@ cpdef track(annotations.Box start, annotations.Box stop, svm, images,
             if resizedbox.ybr > height:
                 resizedbox.ybr = height
 
-            wr = dim[0] / float(resizedbox.get_width())
-            hr = dim[1] / float(resizedbox.get_height())
+            wr = dim[0] / float(resizedbox.width)
+            hr = dim[1] / float(resizedbox.height)
             rimage = im.resize((int(width * wr), int(height * hr)), 2)
 
-            slidingspace = annotations.calculateslidingspace(
-                resizedbox, slidingsearchwidth, (width, height))
-            slidingwindows = annotations.buildslidingwindows(
-                resizedbox, slidingspace, slidingskip)
+            slidingspace = calculateslidingspace(resizedbox,
+                                                 slidingsearchwidth,
+                                                 (width, height))
+            slidingwindows = buildslidingwindows(resizedbox,
+                                                 slidingspace,
+                                                 slidingskip)
 
             costim = convolution.hogrgb(rimage, dim, svm.hogweights(),
                                         svm.rgbweights())
@@ -93,6 +97,14 @@ cpdef track(annotations.Box start, annotations.Box stop, svm, images,
                 if pairwisenode:
                     cost = costim[<int>(slidingbox.xtl*wr),
                                   <int>(slidingbox.ytl*hr)]
+                    
+                    if cost < -1e10:
+                        log.warning("Something probably went wrong")
+                        log.warning("x = {0}".format(slidingbox.xtl*wr))
+                        log.warning("y = {0}".format(slidingbox.ytl*hr))
+                        log.warning("w = {0}".format(costim.shape[0]))
+                        log.warning("h = {0}".format(costim.shape[1]))
+
                     cost += (lineardeviation * 
                              (slidingbox.xtl - linearbox.xtl) * 
                              (slidingbox.xtl - linearbox.xtl))
@@ -107,7 +119,7 @@ cpdef track(annotations.Box start, annotations.Box stop, svm, images,
                         node = Node(slidingbox, cost = cost,
                                     previous = pairwisenode)
                         cltable.set(slidingbox.xtl, slidingbox.ytl, node)
-        pltable.dump(linearbox.frame)
+        #pltable.dump(linearbox.frame)
         pltable = cltable
 
     target = pltable.get(stop.xtl, stop.ytl)
@@ -200,20 +212,19 @@ cdef class NodeMatrix(object):
 
         return pairwises
 
-    def dump(self, frame):
-        import matplotlib.pyplot as plt
-        data = numpy.zeros((self.width // self.skip, self.height // self.skip))
-        for x, mdata in enumerate(self.matrix):
-            for y, v in enumerate(mdata):
-                if not v:
-                    data[x,y] = 0
-                else:
-                    data[x,y] = -v.total_cost
-        plt.set_cmap("gray")
-        plt.imshow(data.transpose())
-        plt.title("{0} to {1}".format(data.min(), data.max()))
-        plt.savefig("tmp/pairwise{0}.png".format(frame))
-        plt.clf()
+#    def dump(self, frame):
+#        data = numpy.zeros((self.width // self.skip, self.height // self.skip))
+#        for x, mdata in enumerate(self.matrix):
+#            for y, v in enumerate(mdata):
+#                if not v:
+#                    data[x,y] = 0
+#                else:
+#                    data[x,y] = -v.total_cost
+#        plt.set_cmap("gray")
+#        plt.imshow(data.transpose())
+#        plt.title("{0} to {1}".format(data.min(), data.max()))
+#        plt.savefig("tmp/pairwise{0}.png".format(frame))
+#        plt.clf()
 
 def decimal_range(a, b, skip):
     start = min(a, b)
@@ -224,3 +235,25 @@ def decimal_range(a, b, skip):
         list.append(next)
         next += skip
     return list
+
+def calculateslidingspace(base, offset, frame):
+    xstart = max(0, base.xtl - offset)
+    xstop  = min(frame[0] - 1, base.xbr + offset) - 1
+    ystart = max(0, base.ytl - offset)
+    ystop  = min(frame[1] - 1, base.ybr + offset) - 1
+    return xstart, ystart, xstop, ystop
+
+cpdef buildslidingwindows(base, space, int skip):
+    """
+    Generate sliding windows based off the image that are displaced and resized.
+    """
+    cdef int nextframe = base.frame
+    cdef int i, j
+    cdef int w = base.width, h = base.height
+    cdef int xstart = space[0], ystart = space[1]
+    cdef int xstop = space[2] - w, ystop = space[3] - h
+    boxes = []
+    for i from xstart < i < xstop by skip:
+        for j from ystart < j < ystop by skip:
+            boxes.append(annotations.Box(i, j, i + w, j + h, nextframe))
+    return boxes
