@@ -1,5 +1,6 @@
 from vision import annotations
 from vision import convolution
+from vision import model
 import interpolation 
 import logging
 import numpy
@@ -13,6 +14,25 @@ from vision cimport annotations
 
 log = logging.getLogger("track")
 
+def fill(path, images, slidingskip = 3, slidingsearchwidth = 600,
+    pairwiseradius = 30, resizestart = 1.0, resizestop = 1.1,
+    resizeincrement = 0.2, lineardeviation = 0.00, upperthreshold = 10,
+    dim = (40, 40)):
+    """
+    Uses dynamic programming to fill in the path.
+    """
+    path.sort(key = lambda x: x.frame)
+    svm = model.PathModel(images, path)
+    result = []
+    for x, y in zip(path, path[1:]):
+        log.info("Tracking between {0} and {1}".format(x.frame, y.frame))
+        result.extend(track(x, y, svm, images, slidingskip, slidingsearchwidth,
+                            pairwiseradius, resizestart, resizestop,
+                            resizeincrement, lineardeviation, upperthreshold,
+                            dim)[:-1])
+    result.append(path[-1])
+    return result
+        
 cpdef track(annotations.Box start, annotations.Box stop, svm, images,
     int slidingskip          = 3,    int slidingsearchwidth   = 600,
     int pairwiseradius       = 30,   float resizestart        = 1.0,
