@@ -12,17 +12,19 @@ from vision cimport annotations
 
 #import matplotlib.pyplot as plt
 
-log = logging.getLogger("track")
+log = logging.getLogger("vision.track")
 
 def fill(path, images, slidingskip = 3, slidingsearchwidth = 600,
     pairwiseradius = 30, resizestart = 1.0, resizestop = 1.1,
     resizeincrement = 0.2, lineardeviation = 0.00, upperthreshold = 10,
-    dim = (40, 40)):
+    dim = (40, 40), hogbin = 8, rgbbin = 8, bgskip = 4, bgsize = 5e4, c = 1.0):
     """
     Uses dynamic programming to fill in the path.
     """
     path.sort(key = lambda x: x.frame)
-    svm = model.PathModel(images, path)
+    svm = model.PathModel(images, path, dim = dim, hogbin = hogbin,
+                          rgbbin = rgbbin, bgskip = bgskip, bgsize = bgsize,
+                          c = c)
     result = []
     for x, y in zip(path, path[1:]):
         log.info("Tracking between {0} and {1}".format(x.frame, y.frame))

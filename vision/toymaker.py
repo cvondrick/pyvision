@@ -144,17 +144,24 @@ class Toy(object):
     def draw(self, canvas):
         raise NotImplementedError()
 
+    def __getitem__(self, frame):
+        """
+        Gets the bounding for this toy at a certain frame.
+        """
+        if frame < 0:
+            frame = len(self) + frame
+        pos = self.positions[frame]
+        if not pos:
+            return Box(0, 0, 1, 1, frame, 1)
+        return Box(pos[0], pos[1],
+                   pos[0] + self.size[0],
+                   pos[1] + self.size[1], frame, 0)
+    
+    def __len__(self):
+        return len(self.positions)
+
     def groundtruth(self):
-        """
-        Gets the actual ground truth by this toy.
-        """
-        truth = []
-        for f, pos in enumerate(self.positions):
-            if pos:
-                truth.append(Box(pos[0], pos[1], pos[0] + self.size[0], pos[1] + self.size[1], f, 0))
-            else:
-                truth.append(Box(0, 0, 1, 1, f, 1))
-        return truth
+        return list(self)
 
 class Rectangle(Toy):
     """

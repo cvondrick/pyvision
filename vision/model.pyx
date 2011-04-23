@@ -22,13 +22,14 @@ class PathModel(object):
     """
 
     def __init__(self, images, givens, dim = (40,40), hogbin = 8,
-                 rgbbin = 8, bgskip = 4, bgsize = 5e4):
+                 rgbbin = 8, bgskip = 4, bgsize = 5e4, c = 1.0):
         """
         Constructs a path based model from the given path.
         """
         self.dim = dim
         self.hogbin = hogbin
         self.rgbbin = rgbbin
+        self.c = c
 
         logger.info("Extracting features from path")
         positives, negatives = self.extractpath(images, givens, dim,
@@ -39,7 +40,7 @@ class PathModel(object):
 
         logger.info("Learning weights for path with {0} foregrounds and "
                     "{1} backgrounds".format(len(positives), len(negatives)))
-        model = svm.train(negatives, positives)
+        model = svm.train(negatives, positives, c = c)
         self.weights, self.bias = model.weights, model.bias
 
         logger.info("Weights learned with bias {0}".format(self.bias))
@@ -70,11 +71,23 @@ class PathModel(object):
             mapped = given.transform(wr, hr)
 
             # positives
+#            patch = im.crop((xtl-hogbin, ytl-hogbin, xbr+hogbin, ybr+hogbin))
+#            hogpatch = features.hog(patch, hogbin)[1:-1,1:-1].flatten()
+#            rgbpatch = features.rgbhist(patch, rgbbin).flatten()
+#            positives.append(numpy.append(hogpatch, rgbpatch))
+
+            # we shift the positives patch by a couple of pixels to have a 
+            # larger training set
             xtl, ytl, xbr, ybr = mapped[0:4]
-            patch = im.crop((xtl-hogbin, ytl-hogbin, xbr+hogbin, ybr+hogbin))
-            hogpatch = features.hog(patch, hogbin)[1:-1,1:-1].flatten()
-            rgbpatch = features.rgbhist(patch, rgbbin).flatten()
-            positives.append(numpy.append(hogpatch, rgbpatch))
+            for horzoffset in range(-hogbin+1, hogbin):
+                for vertoffset in range(-hogbin+1, hogbin):
+                    patch = im.crop((xtl-hogbin+horzoffset,
+                                     ytl-hogbin+vertoffset,
+                                     xbr+hogbin+horzoffset,
+                                     ybr+hogbin+vertoffset))
+                    hogpatch = features.hog(patch, hogbin)[1:-1,1:-1].flatten()
+                    rgbpatch = features.rgbhist(patch, rgbbin).flatten()
+                    positives.append(numpy.append(hogpatch, rgbpatch))
 
             logger.debug("Extracting negatives")
 

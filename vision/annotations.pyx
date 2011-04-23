@@ -208,9 +208,13 @@ class frameiterator(object):
     """
     def __init__(self, base):
         self.base = base
-    def __getitem__(self, frame):
+
+    def path(self, frame):
         l1 = frame / 10000
         l2 = frame / 100
         path = "{0}/{1}/{2}.jpg".format(l1, l2, frame)
         path = "{0}/{1}".format(self.base, path)
-        return Image.open(path)
+        return path
+
+    def __getitem__(self, frame):
+        return Image.open(self.path(frame))
