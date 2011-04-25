@@ -7,15 +7,20 @@ cimport numpy
 
 from vision cimport annotations
 
-import pylab
+debug = True
+
+if debug:
+    import pylab
 
 logger = logging.getLogger("vision.alearn.marginals")
 
 cdef extern from "math.h":
     float exp(float n)
 
+cdef double Infinity = 1e300
+
 def pick(start, stop, model, images,
-         pairwisecost = 0.1, lineardeviation = 0.0,
+         pairwisecost = 0.001, lineardeviation = 0.0,
          upperthreshold = 10, sigma = .1, pool = None):
 
     mapper = pool.map if pool else map
@@ -84,10 +89,11 @@ def pick(start, stop, model, images,
                costs[x.frame], sigma, model.dim, x) for x in linearpath[1:-1]]
     marginals = mapper(scoremarginals, orders)
 
-    pylab.close()
-    pylab.plot([x[1] for x in marginals], [x[0] for x in marginals])
-    pylab.grid()
-    pylab.savefig("tmp/scoreplot.png")
+    if debug:
+        pylab.close()
+        pylab.plot([x[1] for x in marginals], [x[0] for x in marginals])
+        pylab.grid()
+        pylab.savefig("tmp/scoreplot.png")
 
     # find minimum cost
     best = max(marginals)
@@ -128,9 +134,26 @@ def calcerror(pathdict, pointers, linearpath):
         xpointer = pointers[frame][1]
         ypointer = pointers[frame][2]
 
+        boxw = box.xbr - box.xtl
+        boxh = box.ybr - box.ytl
+
         for i in range(w):
             for j in range(h):
-                error = (i - box.xtl) ** 2 + (j - box.ytl) ** 2
+                #error = (i - box.xtl) ** 2 + (j - box.ytl) ** 2
+
+                xdiff = min(i + boxw, box.xbr) - max(i, box.xtl) 
+                ydiff = min(j + boxh, box.ybr) - max(j, box.ytl) 
+
+                if xdiff <= 0 or ydiff <= 0:
+                    error = 1.
+                else:
+                    uni = boxw * boxh * 2 - xdiff * ydiff
+                    error = xdiff * ydiff / float(uni)
+                    if error >= 0.5:
+                        error = 0.
+                    else:
+                        error = 1.
+
                 xp = xpointer[i, j]
                 yp = ypointer[i, j]
                 message = previous[xp, yp]
@@ -139,12 +162,14 @@ def calcerror(pathdict, pointers, linearpath):
         graph[frame] = current, local
         previous = current
 
-        pylab.set_cmap("gray")
-        pylab.imshow(current.transpose())
-        pylab.title("min = {0}, max = {1}".format(current.min(), current.max()))
-        pylab.savefig("tmp/error{0}-{1}.png".format(linearpath[0].frame,
-                                                    linearbox.frame))
-        pylab.clf()
+        if debug:
+            pylab.set_cmap("gray")
+            pylab.imshow(current.transpose())
+            pylab.title("min = {0}, max = {1}".format(current.min(),
+                                                      current.max()))
+            pylab.savefig("tmp/error{0}-{1}.png".format(linearpath[0].frame,
+                                                        linearbox.frame))
+            pylab.clf()
     return graph
 
 def scoremarginals(workorder):
@@ -186,17 +211,18 @@ def scoremarginals(workorder):
             score += localscore
             normalizer += matchscore
 
-    pylab.set_cmap("gray")
-    pylab.title("min = {0}, max = {1}".format(prob.min(), prob.max()))
-    pylab.imshow(prob.transpose())
-    pylab.savefig("tmp/prob{0}.png".format(linearbox.frame))
-    pylab.clf()
+    if debug:
+        pylab.set_cmap("gray")
+        pylab.title("min = {0}, max = {1}".format(prob.min(), prob.max()))
+        pylab.imshow(prob.transpose())
+        pylab.savefig("tmp/prob{0}.png".format(linearbox.frame))
+        pylab.clf()
 
-    pylab.set_cmap("gray")
-    pylab.title("min = {0}, max = {1}".format(reduct.min(), reduct.max()))
-    pylab.imshow(reduct.transpose())
-    pylab.savefig("tmp/reduct{0}.png".format(linearbox.frame))
-    pylab.clf()
+        pylab.set_cmap("gray")
+        pylab.title("min = {0}, max = {1}".format(reduct.min(), reduct.max()))
+        pylab.imshow(reduct.transpose())
+        pylab.savefig("tmp/reduct{0}.png".format(linearbox.frame))
+        pylab.clf()
 
     return score / normalizer, linearbox.frame
 
@@ -217,7 +243,7 @@ def buildgraph(linearpath, images, model, costs,
     usableheight = height - start.height
 
     current = numpy.ones((usablewidth, usableheight), dtype = numpy.double)
-    current = current * float("infinity")
+    current = current * 1e20
     current[<int>start.xtl, <int>start.ytl] = 0
 
     graph = {}
@@ -225,12 +251,8 @@ def buildgraph(linearpath, images, model, costs,
 
     # walk along linear path
     for linearbox in linearpath[1:]:
-        current, xpointer, ypointer = pairwise_manhattan(current, pairwisecost)
-        #current, xpointer, ypointer = pairwise_quadratic(current, pairwisecost)
-
-#        pylab.imshow(current.transpose())
-#        pylab.savefig("tmp/pairwise{0}.png".format(linearbox.frame))
-#        pylab.clf()
+        #current, xpointer, ypointer = pairwise_manhattan(current, pairwisecost)
+        current, xpointer, ypointer = pairwise_quadratic(current, pairwisecost)
 
         wr = model.dim[0] / (<double>linearbox.width)
         hr = model.dim[1] / (<double>linearbox.height)
@@ -255,65 +277,82 @@ def buildgraph(linearpath, images, model, costs,
         graph[linearbox.frame] = current, xpointer, ypointer
     return graph
 
-cdef double Infinity = float("infinity")
 
 # see Pedro Felzenszwalb et. al
-cdef pairwise_quadratic_1d(numpy.ndarray[numpy.double_t, ndim=1] src,
-                           numpy.ndarray[numpy.double_t, ndim=1] dst,
-                           numpy.ndarray[numpy.double_t, ndim=1] ptr,
-                           int step, double a, double b):
-    cdef int n = src.shape[0]
+cpdef pairwise_quadratic_1d(numpy.ndarray[numpy.double_t, ndim=1] src,
+                            numpy.ndarray[numpy.double_t, ndim=1] dst,
+                            numpy.ndarray[numpy.int_t, ndim=1] ptr,
+                            int step, int n, double a, double b, int o):
+    
     cdef numpy.ndarray[numpy.int_t, ndim=1] v = numpy.zeros(n, dtype=numpy.int)
-    cdef numpy.ndarray[numpy.double_t, ndim=1] z = numpy.zeros(n+1)
+    cdef numpy.ndarray[numpy.double_t, ndim=1] z = numpy.zeros(n+1,
+                                                   dtype = numpy.double)
     cdef int k = 0
-    cdef int q
-    cdef double s
-
     v[0] = 0
     z[0] = -Infinity
     z[1] = Infinity
 
-    for q in range(1, n): 
-        s = (src[q*step]-src[v[k]*step])-b*(q-v[k])+a*(q*q-v[k]*v[k])
+    cdef int q
+    cdef double s
+
+    for q in range(1, n):
+        s = ((src[q*step+o]-src[v[k]*step+o])-b*(q-v[k])+a*(q**2-v[k]**2))
         s = s / (2*a*(q-v[k]))
 
         while s <= z[k]:
             k = k - 1
-            s = (src[q*step]-src[v[k]*step])-b*(q-v[k])+a*(q*q-v[k]*v[k])
+            s = ((src[q*step+o]-src[v[k]*step+o])-b*(q-v[k])+a*(q**2-v[k]**2))
             s = s / (2*a*(q-v[k]))
+
         k = k + 1
         v[k] = q
         z[k] = s
         z[k+1] = Infinity
 
     k = 0
-    for q in range(0, n): 
+    for q in range(0, n):
         while z[k+1] < q:
             k = k + 1
-        dst[q*step] = a*(q-v[k])*(q-v[k]) + b*(q-v[k]) + src[v[k]*step]
-        ptr[q*step] = v[k]
-    return dst, ptr
+        dst[q*step+o] = a*(q-v[k])**2 + b*(q-v[k]) + src[v[k]*step+o]
+        ptr[q*step+o] = v[k]
 
-## see Pedro Felzenszwalb et. al
-#def pairwise_quadratic(inscores, double cost):
-#    cdef int w, h, i, j, ri, rj
-#    w, h = inscores.shape
-#
-#    cdef numpy.ndarray[numpy.double_t, ndim=1] src = scores.flatten()
-#    cdef numpy.ndarray[numpy.double_t, ndim=1] dst, ptr
-#    dst = numpy.zeros(scores.shape, dtype = numpy.double)
-#    ptr = numpy.zeros(scores.shape, dtype = numpy.double)
-#
-#    # transform along columns
-#    for i in range(w):
-#        pairwise_quadratic_1d(
-#        cols[i, :], colsp[i, :] = pairwise_quadratic_1d(scores[i, :], cost)
-#
-#    # transform along rows
-#    for j in range(h):
-#        rows[:, j], rowsp[:, j] = pairwise_quadratic_1d(cols[:, j], cost)
-#
-#    return rows, rowsp, colsp
+# see Pedro Felzenszwalb et. al
+def pairwise_quadratic(numpy.ndarray[numpy.double_t, ndim=2] scores,
+                       double cost):
+    cdef int w, h, x, y, p
+    w = scores.shape[0]
+    h = scores.shape[1]
+
+    cdef numpy.ndarray[numpy.double_t, ndim=1] vals = scores.flatten()
+
+    cdef numpy.ndarray[numpy.double_t, ndim=1] M = numpy.zeros(w*h, 
+                                                   dtype = numpy.double)
+    cdef numpy.ndarray[numpy.int_t, ndim=2] Ix = numpy.zeros((w, h), 
+                                                 dtype = numpy.int)
+    cdef numpy.ndarray[numpy.int_t, ndim=2] Iy = numpy.zeros((w, h), 
+                                                 dtype = numpy.int)
+
+    cdef numpy.ndarray[numpy.double_t, ndim=1] tmpM = numpy.zeros(w*h, 
+                                                      dtype = numpy.double)
+    cdef numpy.ndarray[numpy.int_t, ndim=1] tmpIx = numpy.zeros(w*h, 
+                                                    dtype = numpy.int)
+    cdef numpy.ndarray[numpy.int_t, ndim=1] tmpIy = numpy.zeros(w*h, 
+                                                    dtype = numpy.int)
+
+    for x in range(w):
+        pairwise_quadratic_1d(vals, tmpM, tmpIy, 1, h, cost, 0, x * h)
+
+    for y in range(h):
+        pairwise_quadratic_1d(tmpM, M, tmpIx, h, w, cost, 0, y)
+
+    for x in range(w):
+        for y in range(h):
+            p = x * h + y
+            Ix[x, y] = tmpIx[p]
+            Iy[x, y] = tmpIy[tmpIx[p]*h+y]
+
+    return M.reshape((w,h)), Ix, Iy
+
 
 def pairwise_manhattan(inscores, incost):
     cdef int w, h, i, j, ri, rj
