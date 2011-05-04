@@ -7,7 +7,7 @@ cimport numpy
 
 from vision cimport annotations
 
-debug = True
+cdef int debug = 1
 
 if debug:
     import pylab
@@ -21,10 +21,16 @@ cdef double Infinity = 1e300
 
 def pick(start, stop, model, images,
          pairwisecost = 0.001, lineardeviation = 0.0,
-         upperthreshold = 10, sigma = .1, pool = None):
+         upperthreshold = 10, sigma = .1, erroroverlap = 0.5, pool = None):
 
-    mapper = pool.map if pool else map
+    if pool:
+        logger.info("Found a process pool, so attempting to parallelize")
+        mapper = pool.map
+    else:
+        logger.info("No process pool found, so remaining single threaded")
+        mapper = map
     linearpath = interpolation.Linear(start, stop)
+    imagesize = images[0].size
 
     # build dictionary of local scores
     # if there is a pool, this will happen in parallel
@@ -34,17 +40,19 @@ def pick(start, stop, model, images,
 
     # forward and backwards passes
     # if there is a pool, this will use up to 2 cores
-    logger.info("Building forwards and backwards graphs")
-    forwardsargs  = [linearpath, images, model, costs, pairwisecost,
+    forwardsargs  = [linearpath, imagesize, model, costs, pairwisecost,
                      upperthreshold, lineardeviation]
     backwardsargs = list(forwardsargs)
     backwardsargs[0] = list(reversed(linearpath))
     if pool:
+        logger.info("Building forwards and backwards graphs")
         forwards  = pool.apply_async(buildgraph, forwardsargs)
         backwards = buildgraph(*backwardsargs)
         forwards  = forwards.get() # blocks until forwards graph done
     else:
+        logger.info("Building forwards graph")
         forwards  = buildgraph(*forwardsargs)
+        logger.info("Building backwards graph")
         backwards = buildgraph(*backwardsargs)
     
     # backtrack
@@ -64,21 +72,27 @@ def pick(start, stop, model, images,
 
     # calculating error
     # if there is a pool, this will use up to 2 cores
-    logger.info("Calculating errors from the predicted path")
     if pool:
+        logger.info("Calculating forward and backwards errors")
         forwarderror  = pool.apply_async(calcerror, (pathdict,
                                                      forwards,
+                                                     erroroverlap,
                                                      linearpath))
         backwarderror = calcerror(pathdict,
                                   backwards,
+                                  erroroverlap,
                                   list(reversed(linearpath)))
         forwarderror  = forwarderror.get() # blocks until forwards is done
     else:
+        logger.info("Calculating forward error")
         forwarderror  = calcerror(pathdict,
                                   forwards,
+                                  erroroverlap,
                                   linearpath)
+        logger.info("Calculating backward error")
         backwarderror = calcerror(pathdict,
                                   backwards,
+                                  erroroverlap,
                                   list(reversed(linearpath)))
 
     # score marginals on the frames
@@ -99,7 +113,7 @@ def pick(start, stop, model, images,
     best = max(marginals)
     return best[1], best[0], path
 
-def calcerror(pathdict, pointers, linearpath):
+def calcerror(pathdict, pointers, double erroroverlap, linearpath):
     """
     Calculates the error going through a path at a certain point.
 
@@ -149,7 +163,7 @@ def calcerror(pathdict, pointers, linearpath):
                 else:
                     uni = boxw * boxh * 2 - xdiff * ydiff
                     error = xdiff * ydiff / float(uni)
-                    if error >= 0.5:
+                    if error >= erroroverlap:
                         error = 0.
                     else:
                         error = 1.
@@ -161,15 +175,6 @@ def calcerror(pathdict, pointers, linearpath):
                 current[i, j] = error + message
         graph[frame] = current, local
         previous = current
-
-        if debug:
-            pylab.set_cmap("gray")
-            pylab.imshow(current.transpose())
-            pylab.title("min = {0}, max = {1}".format(current.min(),
-                                                      current.max()))
-            pylab.savefig("tmp/error{0}-{1}.png".format(linearpath[0].frame,
-                                                        linearbox.frame))
-            pylab.clf()
     return graph
 
 def scoremarginals(workorder):
@@ -194,25 +199,67 @@ def scoremarginals(workorder):
 
     cdef numpy.ndarray[numpy.double_t, ndim=2] prob = numpy.zeros((w, h))
     cdef numpy.ndarray[numpy.double_t, ndim=2] reduct = numpy.zeros((w, h))
+    cdef numpy.ndarray[numpy.double_t, ndim=2] errors = numpy.zeros((w, h))
 
+    cdef numpy.ndarray[numpy.double_t, ndim=2] matchscores
+    matchscores = numpy.zeros((w, h))
+
+    cdef numpy.ndarray[numpy.double_t, ndim=2] errorsums
+    errorsums = numpy.zeros((w, h))
+
+    cdef double maxmatchscore = Infinity
+
+    cdef int radius = 50
+
+    # for numerical reasons, we want to subtract the most best score
     for i in range(w):
         for j in range(h):
             matchscore = forwrt[i, j] + backwrt[i, j]
             matchscore = matchscore - costrt[<int>(i * wr), <int>(j * hr)]
+            matchscores[i, j] = matchscore
+            if matchscore < maxmatchscore:
+                maxmatchscore = matchscore
+
+    # compute a summed area table on the errors
+    for i in range(w):
+        for j in range(h):
+            error = forwe[i, j] + backwe[i, j] - forwloce[i, j]
+            if i > 0:
+                error += errorsums[i-1, j]
+            if j > 0:
+                error += errorsums[i, j-1]
+                if i > 0:
+                    error -= errorsums[i-1, j-1]
+            errorsums[i, j] = error
+
+    for i in range(w):
+        for j in range(h):
+            matchscore = matchscores[i, j] - maxmatchscore
             matchscore = exp(-matchscore / sigma)
 
-            error = forwe[i, j] + backwe[i, j] - forwloce[i, j]
+            pstartx = max(0, i - radius) 
+            pstarty = max(0, j - radius)
+            pstopx = min(w-1, i + radius)
+            pstopy = min(h-1, j + radius)
+
+            error = errorsums[pstopx, pstopy]
+            error = error - errorsums[pstopx, pstarty]
+            error = error - errorsums[pstartx, pstopy]
+            error = error + errorsums[pstartx, pstarty]
+            error = error / float((pstopx - pstartx) * (pstopy - pstarty))
 
             localscore = matchscore * error
 
             prob[i, j] = matchscore
             reduct[i, j] = localscore
+            errors[i, j] = error
 
             score += localscore
             normalizer += matchscore
 
     if debug:
         pylab.set_cmap("gray")
+        prob = prob / normalizer
         pylab.title("min = {0}, max = {1}".format(prob.min(), prob.max()))
         pylab.imshow(prob.transpose())
         pylab.savefig("tmp/prob{0}.png".format(linearbox.frame))
@@ -224,9 +271,15 @@ def scoremarginals(workorder):
         pylab.savefig("tmp/reduct{0}.png".format(linearbox.frame))
         pylab.clf()
 
+        pylab.set_cmap("gray")
+        pylab.title("min = {0}, max = {1}".format(errors.min(), errors.max()))
+        pylab.imshow(errors.transpose())
+        pylab.savefig("tmp/errors{0}.png".format(linearbox.frame))
+        pylab.clf()
+
     return score / normalizer, linearbox.frame
 
-def buildgraph(linearpath, images, model, costs,
+def buildgraph(linearpath, imagesize, model, costs,
                double pairwisecost, double upperthreshold,
                double lineardeviation):
 
@@ -237,13 +290,15 @@ def buildgraph(linearpath, images, model, costs,
     cdef numpy.ndarray[numpy.int_t, ndim=2] xpointer, ypointer
     cdef annotations.Box linearbox, start = linearpath[0]
 
-    width, height = images[0].size
+    cdef double Huge = 1e200
+
+    width, height = imagesize
 
     usablewidth = width - start.width
     usableheight = height - start.height
 
     current = numpy.ones((usablewidth, usableheight), dtype = numpy.double)
-    current = current * 1e20
+    current = current * Huge
     current[<int>start.xtl, <int>start.ytl] = 0
 
     graph = {}
@@ -251,9 +306,6 @@ def buildgraph(linearpath, images, model, costs,
 
     # walk along linear path
     for linearbox in linearpath[1:]:
-        #current, xpointer, ypointer = pairwise_manhattan(current, pairwisecost)
-        current, xpointer, ypointer = pairwise_quadratic(current, pairwisecost)
-
         wr = model.dim[0] / (<double>linearbox.width)
         hr = model.dim[1] / (<double>linearbox.height)
 
@@ -261,6 +313,20 @@ def buildgraph(linearpath, images, model, costs,
         usableheight = height - linearbox.height
 
         relevantcosts = costs[linearbox.frame]
+
+        # we need to resize current in order to handle resizing paths
+        # if we enlarge, we just pad with psuedo-infinity
+        # otherwise, we can just truncate
+        #current = numpy.resize(current, (usablewidth, usableheight))
+        #for x in range(current.shape[0], usablewidth):
+        #    for y in range(usableheight):
+        #        current[x, y] = Huge
+        #for y in range(current.shape[1], usableheight):
+        #    for x in range(usablewidth):
+        #        current[x, y] = Huge
+         
+        current, xpointer, ypointer = pairwise_quadratic(current, pairwisecost)
+        #current, xpointer, ypointer = pairwise_hinge(current)
 
         for x in range(0, usablewidth):
             for y in range(0, usableheight):
@@ -276,7 +342,6 @@ def buildgraph(linearpath, images, model, costs,
 
         graph[linearbox.frame] = current, xpointer, ypointer
     return graph
-
 
 # see Pedro Felzenszwalb et. al
 cpdef pairwise_quadratic_1d(numpy.ndarray[numpy.double_t, ndim=1] src,
@@ -353,7 +418,6 @@ def pairwise_quadratic(numpy.ndarray[numpy.double_t, ndim=2] scores,
 
     return M.reshape((w,h)), Ix, Iy
 
-
 def pairwise_manhattan(inscores, incost):
     cdef int w, h, i, j, ri, rj
     w, h = inscores.shape
@@ -407,6 +471,51 @@ def pairwise_manhattan(inscores, incost):
                 backwardyp[i, j] = backwardyp[i+1, j]
 
     return backward, backwardxp, backwardyp
+
+def pairwise_hinge(inscores, int radius = 30):
+    cdef int w, h, i, j, pstart, pstop, x, y 
+    w, h = inscores.shape
+
+    cdef numpy.ndarray[numpy.double_t, ndim=2] scores = inscores
+    cdef numpy.ndarray[numpy.double_t, ndim=2] vertical, horizontal
+    cdef numpy.ndarray[numpy.int_t, ndim=2] xp, yp
+
+    vertical = numpy.zeros((w,h), dtype = numpy.double)
+    horizontal = numpy.zeros((w,h), dtype = numpy.double)
+    xp = numpy.zeros((w,h), dtype = numpy.int)
+    yp = numpy.zeros((w,h), dtype = numpy.int)
+
+    for i in range(w):
+        for j in range(h):
+            pstart = j - radius
+            pstop  = j + radius 
+            if pstart < 0:
+                pstart = 0
+            if pstop > h:
+                pstop = h
+            vertical[i, j] = scores[i, j]
+            yp[i, j] = j
+            for y in range(pstart, pstop): 
+                if scores[i, y] < vertical[i, j]:
+                    vertical[i, j] = scores[i, y]
+                    yp[i, j] = y
+
+    for i in range(w):
+        for j in range(h):
+            pstart = i - radius
+            pstop  = i + radius
+            if pstart < 0:
+                pstart = 0
+            if pstop > w:
+                pstop = w
+            horizontal[i, j] = vertical[i, j]
+            xp[i, j] = i
+            for x in range(pstart, pstop):
+                if vertical[x, j] < horizontal[i, j]:
+                    horizontal[i, j] = vertical[x, j]
+                    xp[i, j] = x
+
+    return horizontal, xp, yp
 
 def scoreframe(workorder):
     """
