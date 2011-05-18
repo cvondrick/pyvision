@@ -29,9 +29,9 @@ g.add(o)
 pool = multiprocessing.Pool(24)
 svm = model.PathModel(g, [b[0], b[-1]])
 frame, score, path = marginals.pick(b[0], b[-1], svm, g, pool = pool,
-                                    pairwisecost = .0000001,
+                                    pairwisecost = .0001,
                                     erroroverlap = 0.5)
 
-visualize.save(visualize.highlight_paths(g, [path, b]), lambda x: "tmp/path{0}.jpg".format(x))
+visualize.save(visualize.highlight_paths(g, [path]), lambda x: "tmp/path{0}.jpg".format(x))
 
 print "frame {0} with score {1}".format(frame, score)

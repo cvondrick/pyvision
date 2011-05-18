@@ -197,19 +197,20 @@ def scoremarginals(workorder):
     cdef double wr = dim[0] / (<double>linearbox.width)
     cdef double hr = dim[1] / (<double>linearbox.height)
 
-    cdef numpy.ndarray[numpy.double_t, ndim=2] prob = numpy.zeros((w, h))
-    cdef numpy.ndarray[numpy.double_t, ndim=2] reduct = numpy.zeros((w, h))
-    cdef numpy.ndarray[numpy.double_t, ndim=2] errors = numpy.zeros((w, h))
+    cdef numpy.ndarray[numpy.double_t, ndim=2] gprob = numpy.zeros((w, h))
+    cdef numpy.ndarray[numpy.double_t, ndim=2] greduct = numpy.zeros((w, h))
+    cdef numpy.ndarray[numpy.double_t, ndim=2] gerrors = numpy.zeros((w, h))
 
     cdef numpy.ndarray[numpy.double_t, ndim=2] matchscores
     matchscores = numpy.zeros((w, h))
 
-    cdef numpy.ndarray[numpy.double_t, ndim=2] errorsums
-    errorsums = numpy.zeros((w, h))
+    cdef numpy.ndarray[numpy.double_t, ndim=2] errors, errorsvert
+    errors = numpy.zeros((w, h))
+    errorsvert = numpy.zeros((w, h))
 
     cdef double maxmatchscore = Infinity
 
-    cdef int radius = 50
+    cdef int radius = 10
 
     # for numerical reasons, we want to subtract the most best score
     for i in range(w):
@@ -220,60 +221,56 @@ def scoremarginals(workorder):
             if matchscore < maxmatchscore:
                 maxmatchscore = matchscore
 
-    # compute a summed area table on the errors
+    # compute error image
     for i in range(w):
         for j in range(h):
-            error = forwe[i, j] + backwe[i, j] - forwloce[i, j]
-            if i > 0:
-                error += errorsums[i-1, j]
-            if j > 0:
-                error += errorsums[i, j-1]
-                if i > 0:
-                    error -= errorsums[i-1, j-1]
-            errorsums[i, j] = error
+            errors[i, j] = forwe[i, j] + backwe[i, j] - forwloce[i, j]
 
+    # vertical pass on min
+    for i in range(w):
+        for j in range(h):
+            errorsvert[i, j] = errors[i, j]
+            for y in range(max(0, j - radius), min(h - 1, j + radius)):
+                errorsvert[i, j] = min(errorsvert[i, j], errors[i, y])
+
+    # horizontal pass on min
+    for i in range(w):
+        for j in range(h):
+            errors[i, j] = errorsvert[i, j]
+            for x in range(max(0, i - radius), min(w - 1, i + radius)):
+                errors[i, j] = min(errors[i, j], errorsvert[x, j])
+            
     for i in range(w):
         for j in range(h):
             matchscore = matchscores[i, j] - maxmatchscore
             matchscore = exp(-matchscore / sigma)
 
-            pstartx = max(0, i - radius) 
-            pstarty = max(0, j - radius)
-            pstopx = min(w-1, i + radius)
-            pstopy = min(h-1, j + radius)
+            localscore = matchscore * errors[i, j]
 
-            error = errorsums[pstopx, pstopy]
-            error = error - errorsums[pstopx, pstarty]
-            error = error - errorsums[pstartx, pstopy]
-            error = error + errorsums[pstartx, pstarty]
-            error = error / float((pstopx - pstartx) * (pstopy - pstarty))
-
-            localscore = matchscore * error
-
-            prob[i, j] = matchscore
-            reduct[i, j] = localscore
-            errors[i, j] = error
+            gprob[i, j] = matchscore
+            greduct[i, j] = localscore
+            gerrors[i, j] = errors[i, j]
 
             score += localscore
             normalizer += matchscore
 
     if debug:
         pylab.set_cmap("gray")
-        prob = prob / normalizer
-        pylab.title("min = {0}, max = {1}".format(prob.min(), prob.max()))
-        pylab.imshow(prob.transpose())
+        gprob = gprob / normalizer
+        pylab.title("min = {0}, max = {1}".format(gprob.min(), gprob.max()))
+        pylab.imshow(gprob.transpose())
         pylab.savefig("tmp/prob{0}.png".format(linearbox.frame))
         pylab.clf()
 
         pylab.set_cmap("gray")
-        pylab.title("min = {0}, max = {1}".format(reduct.min(), reduct.max()))
-        pylab.imshow(reduct.transpose())
+        pylab.title("min = {0}, max = {1}".format(greduct.min(), greduct.max()))
+        pylab.imshow(greduct.transpose())
         pylab.savefig("tmp/reduct{0}.png".format(linearbox.frame))
         pylab.clf()
 
         pylab.set_cmap("gray")
-        pylab.title("min = {0}, max = {1}".format(errors.min(), errors.max()))
-        pylab.imshow(errors.transpose())
+        pylab.title("min = {0}, max = {1}".format(gerrors.min(), gerrors.max()))
+        pylab.imshow(gerrors.transpose())
         pylab.savefig("tmp/errors{0}.png".format(linearbox.frame))
         pylab.clf()
 
@@ -536,5 +533,12 @@ def scoreframe(workorder):
     cost = convolution.hogrgb(rimage, model.dim,
                               model.hogweights(),
                               model.rgbweights())
+
+    if debug:
+        pylab.set_cmap("gray")
+        pylab.title("min = {0}, max = {1}".format(cost.min(), cost.max()))
+        pylab.imshow(cost.transpose())
+        pylab.savefig("tmp/cost{0}.png".format(box.frame))
+        pylab.clf()
 
     return box.frame, cost

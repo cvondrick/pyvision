@@ -5,41 +5,36 @@ from vision.toymaker import *
 import os
 import multiprocessing
 import logging
+import random
+import ImageColor
 
 logging.basicConfig(level = logging.INFO)
 
-name = "VIRAT_S_040104_05_000939_001116"
-root = os.path.dirname(os.path.abspath(__file__))
-data = readpaths(open("{0}/{1}.txt".format(root, name)))
-iter = frameiterator("/scratch/virat/frames/{0}".format(name))
+#g = frameiterator("/scratch/vatic/uci-basketball")
+#b = [Box(39, 215, 39 + 38, 215 + 95, 15744),
+#     #Box(303, 223, 303 + 38, 223 + 95, 15793)]
+#     Box(488, 247, 488 + 38, 247 + 95, 15895)]
 
-for id, (label, _) in enumerate(data):
-    print id, label
+#g = frameiterator("/scratch/vatic/uci-basketball")
+#b = [Box(226, 230, 226 + 51, 230 + 97, 20290),
+#     Box(46, 211, 46 + 51, 211 + 97, 20355)]
 
-id = 23
-label, path = data[id]
+#g = frameiterator("/scratch/virat/frames/VIRAT_S_000300_01_000055_000218")
+#b = [Box(183, 91, 183 + 54, 91 + 30, 625),
+#     Box(504, 71, 504 + 54, 71 + 30, 720)]
 
-print label
-
-start = min(x.frame for x in path if not x.lost)
-stop  = max(x.frame for x in path if not x.lost)
-
-print start, stop
-
-#162 and stop = 1670
-
-#start = 300
-#stop = 1500
-
-pathdict = dict((x.frame, x) for x in path)
-
-given = [pathdict[start], pathdict[start+(stop-start)/2], pathdict[stop]]
+g = frameiterator("/scratch/virat/frames/VIRAT_S_050102_02_000526_000593")
+b = [Box(394, 131, 394 + 63, 131 + 32, 429),
+     Box(394, 131, 394 + 63, 131 + 32, 940)]
 
 pool = multiprocessing.Pool(24)
-svm = model.PathModel(iter, given)
-frame, score, path = marginals.pick(given[0], given[-1], svm, iter, pool = pool,
-                                    pairwisecost = .0001)
+pool = None
+svm = model.PathModel(g, [b[0], b[-1]])
+frame, score, path = marginals.pick(b[0], b[-1], svm, g, pool = pool,
+                                    pairwisecost = .001,
+                                    erroroverlap = 0.5,
+                                    sigma = 1)
 
-visualize.save(visualize.highlight_paths(path, [path]), lambda x: "tmp/path{0}.jpg".format(x))
+visualize.save(visualize.highlight_paths(g, [path]), lambda x: "tmp/path{0}.jpg".format(x))
 
 print "frame {0} with score {1}".format(frame, score)
