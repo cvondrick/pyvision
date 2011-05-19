@@ -19,9 +19,9 @@ cdef extern from "math.h":
 
 cdef double Infinity = 1e300
 
-def pick(start, stop, model, images,
-         pairwisecost = 0.001, lineardeviation = 0.0,
-         upperthreshold = 10, sigma = .1, erroroverlap = 0.5, pool = None):
+def pick(start, stopframe, model, images,
+         pairwisecost = 0.001, upperthreshold = 10,
+         sigma = .1, erroroverlap = 0.5, pool = None):
 
     if pool:
         logger.info("Found a process pool, so attempting to parallelize")
@@ -29,21 +29,22 @@ def pick(start, stop, model, images,
     else:
         logger.info("No process pool found, so remaining single threaded")
         mapper = map
-    linearpath = interpolation.Linear(start, stop)
+
+    frames = range(start.frame, stopframe + 1)
     imagesize = images[0].size
 
     # build dictionary of local scores
     # if there is a pool, this will happen in parallel
     logger.info("Scoring frames")
-    orders = [(images, x, model) for x in linearpath]
+    orders = [(images, start, x, model) for x in frames]
     costs = dict(mapper(scoreframe, orders))
 
     # forward and backwards passes
     # if there is a pool, this will use up to 2 cores
-    forwardsargs  = [linearpath, imagesize, model, costs, pairwisecost,
-                     upperthreshold, lineardeviation]
+    forwardsargs  = [frames, imagesize, model, costs, pairwisecost,
+                     upperthreshold, start]
     backwardsargs = list(forwardsargs)
-    backwardsargs[0] = list(reversed(linearpath))
+    backwardsargs[0] = list(reversed(frames))
     if pool:
         logger.info("Building forwards and backwards graphs")
         forwards  = pool.apply_async(buildgraph, forwardsargs)
@@ -57,12 +58,14 @@ def pick(start, stop, model, images,
     
     # backtrack
     logger.info("Backtracking")
-    x, y, frame = stop.xtl, stop.ytl, stop.frame
+    x, y = numpy.unravel_index(numpy.argmin(forwards[stopframe][0]),
+                                            forwards[stopframe][0].shape)
+    frame = stopframe
     path = []
     while frame > start.frame:
         path.append(annotations.Box(x, y,
-                                    x + stop.width,
-                                    y + stop.height,
+                                    x + start.width,
+                                    y + start.height,
                                     frame))
         x, y = forwards[frame][1][x, y], forwards[frame][2][x, y]
         frame = frame - 1
@@ -77,30 +80,30 @@ def pick(start, stop, model, images,
         forwarderror  = pool.apply_async(calcerror, (pathdict,
                                                      forwards,
                                                      erroroverlap,
-                                                     linearpath))
+                                                     frames))
         backwarderror = calcerror(pathdict,
                                   backwards,
                                   erroroverlap,
-                                  list(reversed(linearpath)))
+                                  list(reversed(frames)))
         forwarderror  = forwarderror.get() # blocks until forwards is done
     else:
         logger.info("Calculating forward error")
         forwarderror  = calcerror(pathdict,
                                   forwards,
                                   erroroverlap,
-                                  linearpath)
+                                  frames)
         logger.info("Calculating backward error")
         backwarderror = calcerror(pathdict,
                                   backwards,
                                   erroroverlap,
-                                  list(reversed(linearpath)))
+                                  list(reversed(frames)))
 
     # score marginals on the frames
     # if there is a pool, this will happen in parallel
     logger.info("Computing marginals")
-    orders = [(forwards[x.frame], backwards[x.frame],
-               forwarderror[x.frame], backwarderror[x.frame],
-               costs[x.frame], sigma, model.dim, x) for x in linearpath[1:-1]]
+    orders = [(forwards[x], backwards[x],
+               forwarderror[x], backwarderror[x],
+               costs[x], sigma, model.dim, start, x) for x in frames[1:-1]]
     marginals = mapper(scoremarginals, orders)
 
     if debug:
@@ -113,7 +116,25 @@ def pick(start, stop, model, images,
     best = max(marginals)
     return best[1], best[0], path
 
-def calcerror(pathdict, pointers, double erroroverlap, linearpath):
+cdef double calcerroroverlap(int i, int j, annotations.Box box, double thres):
+    boxw = box.xbr - box.xtl
+    boxh = box.ybr - box.ytl
+
+    xdiff = min(i + boxw, box.xbr) - max(i, box.xtl) 
+    ydiff = min(j + boxh, box.ybr) - max(j, box.ytl) 
+
+    if xdiff <= 0 or ydiff <= 0:
+        error = 1.
+    else:
+        uni = boxw * boxh * 2 - xdiff * ydiff
+        error = xdiff * ydiff / float(uni)
+        if error >= thres:
+            error = 0.
+        else:
+            error = 1.
+    return error
+
+def calcerror(pathdict, pointers, double erroroverlap, frames):
     """
     Calculates the error going through a path at a certain point.
 
@@ -121,11 +142,11 @@ def calcerror(pathdict, pointers, double erroroverlap, linearpath):
     the error calculation. We simply use the pairwise results from the
     previous results.
     """
-    cdef int frame = linearpath[0].frame
+    cdef int frame = frames[0]
     cdef annotations.Box box = pathdict[frame]
     cdef numpy.ndarray[numpy.double_t, ndim=2] previous, current, local
     cdef numpy.ndarray[numpy.int_t, ndim=2] xpointer, ypointer
-    size = pointers[linearpath[-1].frame][1].shape
+    size = pointers[frames[-1]][1].shape
     cdef int w = size[0], h = size[1]
     cdef int xp, yp
     cdef double message
@@ -136,38 +157,20 @@ def calcerror(pathdict, pointers, double erroroverlap, linearpath):
     previous = numpy.zeros(size, dtype = numpy.double)
     for i in range(w):
         for j in range(h):
-            previous[i, j] = (i - box.xtl) ** 2 + (j - box.ytl) ** 2
+            previous[i, j] = calcerroroverlap(i, j, box, erroroverlap) 
     graph[frame] = previous, previous
 
     # do the inductive steps
-    for linearbox in linearpath[1:]:
+    for frame in frames[1:]:
         current = numpy.zeros(size, dtype = numpy.double)
         local = numpy.zeros(size, dtype = numpy.double)
-        frame = linearbox.frame
         box = pathdict[frame]
         xpointer = pointers[frame][1]
         ypointer = pointers[frame][2]
 
-        boxw = box.xbr - box.xtl
-        boxh = box.ybr - box.ytl
-
         for i in range(w):
             for j in range(h):
-                #error = (i - box.xtl) ** 2 + (j - box.ytl) ** 2
-
-                xdiff = min(i + boxw, box.xbr) - max(i, box.xtl) 
-                ydiff = min(j + boxh, box.ybr) - max(j, box.ytl) 
-
-                if xdiff <= 0 or ydiff <= 0:
-                    error = 1.
-                else:
-                    uni = boxw * boxh * 2 - xdiff * ydiff
-                    error = xdiff * ydiff / float(uni)
-                    if error >= erroroverlap:
-                        error = 0.
-                    else:
-                        error = 1.
-
+                error = calcerroroverlap(i, j, box, erroroverlap)
                 xp = xpointer[i, j]
                 yp = ypointer[i, j]
                 message = previous[xp, yp]
@@ -179,9 +182,10 @@ def calcerror(pathdict, pointers, double erroroverlap, linearpath):
 
 def scoremarginals(workorder):
     cdef double sigma
-    (forw, backw, forwerr, backwerr, costs, sigma, dim, linearbox) = workorder
+    cdef int frame
+    cdef annotations.Box start
+    (forw, backw, forwerr, backwerr, costs, sigma, dim, start, frame) = workorder
 
-    cdef int frame = linearbox.frame
     cdef double score = 0, normalizer = 0, matchscore, error, localscore
 
     cdef numpy.ndarray[numpy.double_t, ndim=2] forwrt = forw[0]
@@ -194,8 +198,8 @@ def scoremarginals(workorder):
     cdef int w = forw[1].shape[0]
     cdef int h = forw[1].shape[1]
 
-    cdef double wr = dim[0] / (<double>linearbox.width)
-    cdef double hr = dim[1] / (<double>linearbox.height)
+    cdef double wr = dim[0] / (<double>start.width)
+    cdef double hr = dim[1] / (<double>start.height)
 
     cdef numpy.ndarray[numpy.double_t, ndim=2] gprob = numpy.zeros((w, h))
     cdef numpy.ndarray[numpy.double_t, ndim=2] greduct = numpy.zeros((w, h))
@@ -259,85 +263,68 @@ def scoremarginals(workorder):
         gprob = gprob / normalizer
         pylab.title("min = {0}, max = {1}".format(gprob.min(), gprob.max()))
         pylab.imshow(gprob.transpose())
-        pylab.savefig("tmp/prob{0}.png".format(linearbox.frame))
+        pylab.savefig("tmp/prob{0}.png".format(frame))
         pylab.clf()
 
         pylab.set_cmap("gray")
         pylab.title("min = {0}, max = {1}".format(greduct.min(), greduct.max()))
         pylab.imshow(greduct.transpose())
-        pylab.savefig("tmp/reduct{0}.png".format(linearbox.frame))
+        pylab.savefig("tmp/reduct{0}.png".format(frame))
         pylab.clf()
 
         pylab.set_cmap("gray")
         pylab.title("min = {0}, max = {1}".format(gerrors.min(), gerrors.max()))
         pylab.imshow(gerrors.transpose())
-        pylab.savefig("tmp/errors{0}.png".format(linearbox.frame))
+        pylab.savefig("tmp/errors{0}.png".format(frame))
         pylab.clf()
 
-    return score / normalizer, linearbox.frame
+    return score / normalizer, frame
 
-def buildgraph(linearpath, imagesize, model, costs,
+def buildgraph(frames, imagesize, model, costs,
                double pairwisecost, double upperthreshold,
-               double lineardeviation):
+               annotations.Box start):
 
     cdef double cost, wr, hr
     cdef int width, height, usablewidth, usableheight
     cdef numpy.ndarray[numpy.double_t, ndim=2] relevantcosts
     cdef numpy.ndarray[numpy.double_t, ndim=2] current
     cdef numpy.ndarray[numpy.int_t, ndim=2] xpointer, ypointer
-    cdef annotations.Box linearbox, start = linearpath[0]
 
     cdef double Huge = 1e200
 
     width, height = imagesize
-
-    usablewidth = width - start.width
-    usableheight = height - start.height
-
-    current = numpy.ones((usablewidth, usableheight), dtype = numpy.double)
-    current = current * Huge
-    current[<int>start.xtl, <int>start.ytl] = 0
+    usablewidth = width - start.width - 1
+    usableheight = height - start.height - 1
+    wr = model.dim[0] / (<double>start.width)
+    hr = model.dim[1] / (<double>start.height)
 
     graph = {}
-    graph[start.frame] = current, None, None
 
     # walk along linear path
-    for linearbox in linearpath[1:]:
-        wr = model.dim[0] / (<double>linearbox.width)
-        hr = model.dim[1] / (<double>linearbox.height)
+    for frame in frames:
+        if frame == frames[0]:
+            current = numpy.zeros((usablewidth, usableheight),
+                                   dtype = numpy.double)
+            xpointer = None
+            ypointer = None
+        else:
+            current, xpointer, ypointer = pairwise_quadratic(current,
+                                                             pairwisecost)
 
-        usablewidth = width - linearbox.width
-        usableheight = height - linearbox.height
+        if frame == start.frame:
+            current = numpy.zeros((usablewidth, usableheight),
+                                   dtype = numpy.double)
+            current = current * Huge
+            current[<int>start.xtl, <int>start.ytl] = 0
+        else:
+            relevantcosts = costs[frame]
+            for x in range(0, usablewidth):
+                for y in range(0, usableheight):
+                    cost  = relevantcosts[<int>(x*wr), <int>(y*hr)]
+                    cost  = min(cost, upperthreshold)
+                    current[x, y] += cost
 
-        relevantcosts = costs[linearbox.frame]
-
-        # we need to resize current in order to handle resizing paths
-        # if we enlarge, we just pad with psuedo-infinity
-        # otherwise, we can just truncate
-        #current = numpy.resize(current, (usablewidth, usableheight))
-        #for x in range(current.shape[0], usablewidth):
-        #    for y in range(usableheight):
-        #        current[x, y] = Huge
-        #for y in range(current.shape[1], usableheight):
-        #    for x in range(usablewidth):
-        #        current[x, y] = Huge
-         
-        current, xpointer, ypointer = pairwise_quadratic(current, pairwisecost)
-        #current, xpointer, ypointer = pairwise_hinge(current)
-
-        for x in range(0, usablewidth):
-            for y in range(0, usableheight):
-                cost  = relevantcosts[<int>(x*wr), <int>(y*hr)]
-                cost  = min(cost, upperthreshold)
-                cost += (lineardeviation * 
-                            (x - linearbox.xtl) * 
-                            (x - linearbox.xtl))
-                cost += (lineardeviation * 
-                            (y - linearbox.ytl) * 
-                            (y - linearbox.ytl))
-                current[x, y] += cost
-
-        graph[linearbox.frame] = current, xpointer, ypointer
+        graph[frame] = current, xpointer, ypointer
     return graph
 
 # see Pedro Felzenszwalb et. al
@@ -519,15 +506,15 @@ def scoreframe(workorder):
     Convolves a learned weight vector against an image. This method
     should take a workorder tuple because it can be used in multiprocessing.
     """
-    images, box, model = workorder
+    images, start, frame, model = workorder
 
-    logger.debug("Scoring frame {0}".format(box.frame))
+    logger.debug("Scoring frame {0}".format(frame))
 
     # resize image to so box has 'dim' in the resized space
-    image = images[box.frame]
+    image = images[frame]
     width, height = image.size
-    wr = model.dim[0] / float(box.width)
-    hr = model.dim[1] / float(box.height)
+    wr = model.dim[0] / <double>(start.width)
+    hr = model.dim[1] / <double>(start.height)
     rimage = image.resize((int(width * wr), int(height * hr)), 2)
 
     cost = convolution.hogrgb(rimage, model.dim,
@@ -538,7 +525,7 @@ def scoreframe(workorder):
         pylab.set_cmap("gray")
         pylab.title("min = {0}, max = {1}".format(cost.min(), cost.max()))
         pylab.imshow(cost.transpose())
-        pylab.savefig("tmp/cost{0}.png".format(box.frame))
+        pylab.savefig("tmp/cost{0}.png".format(frame))
         pylab.clf()
 
-    return box.frame, cost
+    return frame, cost

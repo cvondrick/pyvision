@@ -24,16 +24,14 @@ logging.basicConfig(level = logging.INFO)
 #     Box(504, 71, 504 + 54, 71 + 30, 720)]
 
 g = frameiterator("/scratch/virat/frames/VIRAT_S_050102_02_000526_000593")
-b = [Box(394, 131, 394 + 63, 131 + 32, 429),
-     Box(394, 131, 394 + 63, 131 + 32, 940)]
+b = [Box(342, 235, 342 + 67, 235 + 55, 429)]
+stop = 675
 
 pool = multiprocessing.Pool(24)
-pool = None
-svm = model.PathModel(g, [b[0], b[-1]])
-frame, score, path = marginals.pick(b[0], b[-1], svm, g, pool = pool,
-                                    pairwisecost = .001,
-                                    erroroverlap = 0.5,
-                                    sigma = 1)
+svm = model.PathModel(g, b)
+frame, score, path = marginals.pick(b[0], stop, svm, g, pool = pool,
+                                    pairwisecost = .01,
+                                    erroroverlap = 0.5)
 
 visualize.save(visualize.highlight_paths(g, [path]), lambda x: "tmp/path{0}.jpg".format(x))
 
