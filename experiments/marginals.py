@@ -23,15 +23,26 @@ logging.basicConfig(level = logging.INFO)
 #b = [Box(183, 91, 183 + 54, 91 + 30, 625),
 #     Box(504, 71, 504 + 54, 71 + 30, 720)]
 
-g = frameiterator("/scratch/virat/frames/VIRAT_S_050102_02_000526_000593")
-b = [Box(342, 235, 342 + 67, 235 + 55, 429)]
-stop = 675
+g = frameiterator("/scratch/vatic/syn-yi-levels")
+b = [Box(153, 124, 153 + 61, 124 + 148, 0)]
+stop = 1349
+
+g = frameiterator("/scratch/vatic/syn-many")
+b = [Box(461, 131, 461 + 67, 131 + 101, 0)]
+stop = 900
 
 pool = multiprocessing.Pool(24)
-svm = model.PathModel(g, b)
-frame, score, path = marginals.pick(b[0], stop, svm, g, pool = pool,
-                                    pairwisecost = .01,
-                                    erroroverlap = 0.5)
+
+frame, score, path = marginals.pick(b, g,
+                                    last = stop,
+                                    pool = pool,
+                                    pairwisecost = .001,
+                                    dim = (40, 40),
+                                    sigma = 1000,
+                                    erroroverlap = 0.5,
+                                    rgbbin = 16,
+                                    hogbin = 8,
+                                    c = 0.1)
 
 visualize.save(visualize.highlight_paths(g, [path]), lambda x: "tmp/path{0}.jpg".format(x))
 

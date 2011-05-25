@@ -3,43 +3,24 @@ from vision.track import dp
 from vision import visualize
 import os
 import logging
+import multiprocessing
 
 logging.basicConfig(level = logging.INFO)
 
 name = "VIRAT_S_040104_05_000939_001116"
 root = os.path.dirname(os.path.abspath(__file__))
-data = readpaths(open("{0}/{1}.txt".format(root, name)))
-iter = frameiterator("/scratch/virat/frames/{0}".format(name))
+#iter = frameiterator("/scratch/virat/frames/{0}".format(name))
+iter = frameiterator("/scratch/vatic/syn-bounce-level")
 
-for id, (label, _) in enumerate(data):
-    print id, label
+#start = Box(234, 115, 234 + 72, 115 + 44, 0)
+#start = Box(434, 184, 434 + 112, 184 + 75, 0)
+start = Box(576, 63, 576 + 81, 63 + 297, 0)
+stop  = 1000
 
-id = 30
-label, path = data[id]
+given = [start]
 
-print label
-
-start = min(x.frame for x in path if not x.lost)
-stop  = max(x.frame for x in path if not x.lost)
-
-#162 and stop = 1670
-
-#start = 300
-#stop = 1500
-
-pathdict = dict((x.frame, x) for x in path)
-
-given = [pathdict[start], pathdict[start+(stop-start)/2], pathdict[stop]]
-
-predicted = dp.fill(given, iter, pairwiseradius = 10,
-                    resizestart = 1.0, resizestop = 1.1, resizeincrement = 0.2,
-                    c = 0.1)
+pool = multiprocessing.Pool(24)
+predicted = dp.fill(given, iter, last = stop, pool = pool, pairwisecost = .1)
 
 vit = visualize.highlight_path(iter, predicted)
-base = "{0}/dynamic/{1}/clicks{2}/".format(root, id, len(given))
-try:
-    os.makedirs(base)
-except:
-    pass
-
-visualize.save(vit, lambda x: "{0}/{1}.jpg".format(base, x))
+visualize.save(vit, lambda x: "tmp/path{0}.jpg".format(x))

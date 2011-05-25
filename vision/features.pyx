@@ -1,4 +1,5 @@
 import numpy as np
+import Image
 cimport numpy as np
 cimport cython
 
@@ -64,6 +65,8 @@ cpdef hog(im, int sbin = 8):
     hist = np.zeros(shape=(blocks0 * blocks1 * 9), dtype=np.double)
     norm = np.zeros(shape=(blocks0 * blocks1), dtype=np.double)
     feat = np.zeros(shape=(out0, out1, out2), dtype=np.double)
+
+    return feat
 
     for x from 1 <= x < visible1 - 1:
         for y from 1 <= y < visible0 - 1:
@@ -183,6 +186,7 @@ cpdef rgbhist(im, int binsize = 8):
     cdef np.ndarray[np.uint8_t, ndim=3] data = np.asarray(im)
     cdef np.ndarray[np.double_t, ndim=1] hist 
     hist = np.zeros(binsize * binsize * binsize)
+
     for i from 0 <= i < w:
         for j from 0 <= j < h:
             bin  = (<int>data[j,i,0]) / (256/binsize)
@@ -190,3 +194,32 @@ cpdef rgbhist(im, int binsize = 8):
             bin += (<int>data[j,i,2]) / (256/binsize) * binsize * binsize
             hist[bin] += 1
     return hist
+
+cpdef rgbmean(im):
+    """
+    Computes mean and covariances of RGB colors.
+    """
+    cdef int w = im.size[0], h = im.size[1]
+    cdef double r, g, b
+    cdef np.ndarray[np.uint8_t, ndim=3] data = np.asarray(im)
+    cdef np.ndarray[np.double_t, ndim=1] out = np.zeros(9)
+
+    for i in range(w):
+        for j in range(h):
+            r = data[j, i, 0] / 255.
+            g = data[j, i, 1] / 255.
+            b = data[j, i, 2] / 255.
+
+            out[0] += r
+            out[1] += g
+            out[2] += b
+
+            out[3] += r * r 
+            out[4] += r * g 
+            out[5] += r * b
+
+            out[6] += g * g
+            out[7] += g * b
+
+            out[8] += b * b
+    return out  / (w * h)

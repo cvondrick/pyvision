@@ -1,281 +1,201 @@
-from vision import annotations
-from vision import convolution
-from vision import model
-import interpolation 
-import logging
 import numpy
-import Image
+from vision import convolution
+from vision import Box
+from vision.track import pairwise
+from vision import annotations
+from vision.model import PathModel
+
+from math import ceil
+
+import logging
 
 cimport numpy
-cimport cython
 from vision cimport annotations
 
-#import matplotlib.pyplot as plt
+cdef int debug = 1
 
-log = logging.getLogger("vision.track")
+if debug:
+    import pylab
 
-def fill(path, images, slidingskip = 3, slidingsearchwidth = 600,
-    pairwiseradius = 30, resizestart = 1.0, resizestop = 1.1,
-    resizeincrement = 0.2, lineardeviation = 0.00, upperthreshold = 10,
-    dim = (40, 40), hogbin = 8, rgbbin = 8, bgskip = 4, bgsize = 5e4, c = 1.0):
-    """
-    Uses dynamic programming to fill in the path.
-    """
-    path.sort(key = lambda x: x.frame)
-    svm = model.PathModel(images, path, dim = dim, hogbin = hogbin,
-                          rgbbin = rgbbin, bgskip = bgskip, bgsize = bgsize,
-                          c = c)
-    result = []
-    for x, y in zip(path, path[1:]):
-        log.info("Tracking between {0} and {1}".format(x.frame, y.frame))
-        result.extend(track(x, y, svm, images, slidingskip, slidingsearchwidth,
-                            pairwiseradius, resizestart, resizestop,
-                            resizeincrement, lineardeviation, upperthreshold,
-                            dim)[:-1])
-    result.append(path[-1])
-    return result
-        
-cpdef track(annotations.Box start, annotations.Box stop, svm, images,
-    int slidingskip          = 3,    int slidingsearchwidth   = 600,
-    int pairwiseradius       = 30,   float resizestart        = 1.0,
-    float resizestop         = 1.1,  float resizeincrement    = 0.2,
-    float lineardeviation    = 0.00, float upperthreshold     = 10,
-    dim = (40, 40)):
-    """
-    Performs dynamic programming via the Viterbi algorithm. Finds the globally
-    optimal path from start to stop using the SVM across the frames.
+logger = logging.getLogger("vision.track.dp")
 
-    - slidingskip dictates how many pixels to move the sliding window.
-    - slidingsearchwidth dictates how many pixels to deviate from the linear
-      path
-    - pairwiseradius is the acceptable radius to move between frames
-    - search over resizes resizestart <= r < resizestop, skipping by
-      resizeincrement
-    - lineardeviation is proportionality constant for deviating from linear path
-    - upperthreshold is the maximum score
-    - dim is the size of the template to score with (probably should be removed)
-    """
+def fill(givens, images, last = None, 
+         pairwisecost = 0.001, upperthreshold = 10, skip = 3, 
+         rgbbin = 8, hogbin = 8, c = 1, pool = None):
 
-    cdef NodeMatrix pltable, cltable, pairwiseterms
-    cdef annotations.Box slidingbox, resizedbox, linearbox
-    cdef int width, height, usedwindows
-    cdef double cost, wr, hr, velocity, progress
-    cdef numpy.ndarray[numpy.double_t, ndim=2] costim
+    givens.sort(key = lambda x: x.frame)
 
-    linearpath = interpolation.Linear(start, stop)
-    width, height = images[start.frame].size
-
-    velocity = linearpath[0].distance(linearpath[1])
-    if velocity >= pairwiseradius:
-        pairwiseradius = int(velocity * 1.5)
-        logging.warning("Adjusting pairwise radius")
-
-    root = Node(start)
-    pltable = NodeMatrix(width, height, slidingskip)
-    pltable.set(start.xtl, start.ytl, root)
-
-    for linearbox in linearpath[1:]:
-
-        cltable = NodeMatrix(width, height, slidingskip)
-        pairwiseterms = pltable.pairwise_build(pairwiseradius)
-        im = images[linearbox.frame]
-        progress = ((linearbox.frame - start.frame) /
-                    float(stop.frame - start.frame))
-
-        log.info("Scoring frame {0} ({1}%)".format(linearbox.frame,
-                                                   int(progress * 100)))
-
-        for resizeratio in decimal_range(resizestart,
-                                         resizestop,
-                                         resizeincrement):
-            resizedbox = linearbox.resize(resizeratio)
-            if resizedbox.xbr > width:
-                resizedbox.xbr = width
-            if resizedbox.ybr > height:
-                resizedbox.ybr = height
-
-            wr = dim[0] / float(resizedbox.width)
-            hr = dim[1] / float(resizedbox.height)
-            rimage = im.resize((int(width * wr), int(height * hr)), 2)
-
-            slidingspace = calculateslidingspace(resizedbox,
-                                                 slidingsearchwidth,
-                                                 (width, height))
-            slidingwindows = buildslidingwindows(resizedbox,
-                                                 slidingspace,
-                                                 slidingskip)
-
-            costim = convolution.hogrgb(rimage, dim, svm.hogweights(),
-                                        svm.rgbweights())
-
-            #plt.set_cmap("gray")
-            #plt.imshow(costim.transpose())
-            #plt.savefig("tmp/local{0}.png".format(linearbox.frame))
-            #plt.clf()
-
-            for slidingbox in slidingwindows:
-                pairwisenode = pairwiseterms.get(slidingbox.xtl,
-                                                 slidingbox.ytl)
-                if pairwisenode:
-                    cost = costim[<int>(slidingbox.xtl*wr),
-                                  <int>(slidingbox.ytl*hr)]
-                    
-                    if cost < -1e10:
-                        log.warning("Something probably went wrong")
-                        log.warning("x = {0}".format(slidingbox.xtl*wr))
-                        log.warning("y = {0}".format(slidingbox.ytl*hr))
-                        log.warning("w = {0}".format(costim.shape[0]))
-                        log.warning("h = {0}".format(costim.shape[1]))
-
-                    cost += (lineardeviation * 
-                             (slidingbox.xtl - linearbox.xtl) * 
-                             (slidingbox.xtl - linearbox.xtl))
-                    cost += (lineardeviation * 
-                             (slidingbox.ytl - linearbox.ytl) * 
-                             (slidingbox.ytl - linearbox.ytl))
-                    if cost > upperthreshold:
-                        cost = upperthreshold
-
-                    if (not cltable.contains(slidingbox.xtl, slidingbox.ytl) or 
-                       cltable.get(slidingbox.xtl, slidingbox.ytl).cost > cost):
-                        node = Node(slidingbox, cost = cost,
-                                    previous = pairwisenode)
-                        cltable.set(slidingbox.xtl, slidingbox.ytl, node)
-        #pltable.dump(linearbox.frame)
-        pltable = cltable
-
-    target = pltable.get(stop.xtl, stop.ytl)
-    if target is None:
-        raise TrackImpossible()
-    track = []
-    while target is not None:
-        track.append(target.box)
-        target = target.previous
-    track.reverse()
-    return track
-
-class TrackImpossible(Exception):
-    def __str__(self):
-        return "No track found for object given parameters"
-
-cdef class Node(object):
-    """A node in the dynamic programming without any pairwise constraints. In
-    effect, this is a relation between a box and the cost."""
+    model = PathModel(images, givens, rgbbin = rgbbin, hogbin = hogbin, c = c)
     
-    @cython.profile(False)
-    def __init__(self, annotations.Box box, double cost = 0,
-                 Node previous = None):
-        self.box = box
-        self.cost = cost
-        self.previous = previous
+    fullpath = []
+    for x, y in zip(givens, givens[1:]):
+        path = track(x, y, model, images, pairwisecost,
+                    upperthreshold, skip, pool)
+        fullpath.extend(path[:-1])
 
-        self.total_cost = cost
-        if previous is not None:
-            self.total_cost += previous.total_cost
+    if last is not None and last > givens[-1].frame:
+        path = track(givens[-1], last, model, images,
+                     pairwisecost, upperthreshold, skip, pool)
+        fullpath.extend(path[:-1])
 
-cdef class NodeMatrix(object):
-    def __init__(self, int width, int height, int skip):
-        self.width = width
-        self.height = height
-        self.skip = skip
-        self.matrix = [None] * (width // skip)
-        for i in range(width // skip):
-            self.matrix[i] = [None] * (height // skip)
+    return fullpath
 
-    @cython.profile(False)
-    cdef inline bint contains(self, int x, int y):
-        return self.matrix[x // self.skip][y // self.skip] is not None
+def track(start, stop, model, images,
+          pairwisecost = 0.001, upperthreshold = 10, skip = 3, pool = None):
 
-    @cython.profile(False)
-    cdef inline Node get(self, int x, int y):
-        return self.matrix[x // self.skip][y // self.skip]
+    imagesize = images[start.frame].size
 
-    @cython.profile(False)
-    cdef inline set(self, int x, int y, Node node):
-        self.matrix[x // self.skip][y // self.skip] = node
+    if pool:
+        mapper = pool.map
+    else:
+        mapper = map
 
-    def pairwise_build(self, int radius):
-        cdef int i, j, x, y, pstart, pstop
-        cdef NodeMatrix fpass, pairwises
+    try:
+        stopframe = stop.frame
+        constrained = True
+        # adjust stop for scaling reasons
+        if stop.xtl + start.width >= imagesize[0]:
+            stopxtl = imagesize[0] - start.width - 1
+        else:
+            stopxtl = stop.xtl
+        if stop.ytl + start.height >= imagesize[1]:
+            stopytl = imagesize[1] - start.height - 1
+        else:
+            stopytl = stop.ytl
+        stop = Box(stopxtl, stopytl, stopxtl + start.width,
+                   stopytl + start.height, stop.frame)
+        constraints = [start, stop]
+    except:
+        stopframe = stop
+        constrained = False
+        constraints = [start]
 
-        # vertical pass
-        fpass = NodeMatrix(self.width, self.height, self.skip)
-        for i from 0 <= i < self.width by self.skip:
-            for j from 0 <= j < self.height by self.skip:
-                pstart = j - radius
-                pstop  = j + radius 
-                if pstart < 0:
-                    pstart = 0
-                if pstop > self.height:
-                    pstop = self.height
-                for y from pstart <= y < pstop by self.skip:
-                    if self.contains(i, y):
-                        if (not fpass.contains(i, j) or
-                            self.get(i, y).total_cost <
-                            fpass.get(i, j).total_cost):
-                            fpass.set(i, j, self.get(i, y))
+    logger.info("Dynamic programming from {0} to {1}".format(start.frame,
+                                                             stopframe))
 
-        # horizontal pass
-        pairwises = NodeMatrix(self.width, self.height, self.skip)
-        for i from 0 <= i < self.width by self.skip:
-            for j from 0 <= j < self.height by self.skip:
-                pstart = i - radius
-                pstop  = i + radius
-                if pstart < 0:
-                    pstart = 0
-                if pstop > self.width:
-                    pstop = self.width
-                for x from pstart <= x < pstop by self.skip:
-                    if fpass.contains(x, j):
-                        if (not pairwises.contains(i, j) or 
-                            fpass.get(x, j).total_cost <
-                            pairwises.get(i, j).total_cost):
-                            pairwises.set(i, j, fpass.get(x, j))
+    frames = range(start.frame, stopframe + 1)
 
-        return pairwises
+    # build dictionary of local scores
+    # if there is a pool, this will happen in parallel
+    logger.info("Scoring frames")
+    orders = [(images, start, x, model) for x in frames]
+    costs = dict(mapper(scoreframe, orders))
 
-#    def dump(self, frame):
-#        data = numpy.zeros((self.width // self.skip, self.height // self.skip))
-#        for x, mdata in enumerate(self.matrix):
-#            for y, v in enumerate(mdata):
-#                if not v:
-#                    data[x,y] = 0
-#                else:
-#                    data[x,y] = -v.total_cost
-#        plt.set_cmap("gray")
-#        plt.imshow(data.transpose())
-#        plt.title("{0} to {1}".format(data.min(), data.max()))
-#        plt.savefig("tmp/pairwise{0}.png".format(frame))
-#        plt.clf()
+    # forward and backwards passes
+    # if there is a pool, this will use up to 2 cores
+    forwardsargs  = [frames, imagesize, model, costs, pairwisecost,
+                     upperthreshold, skip, constraints]
+    logger.info("Building forwards graph")
+    forwards  = buildgraph(*forwardsargs)
+    
+    # backtrack
+    logger.info("Backtracking")
+    if constrained:
+        x, y, frame = stop.xtl, stop.ytl, stop.frame
+    else:
+        x, y = numpy.unravel_index(numpy.argmin(forwards[stopframe][0]),
+                                                forwards[stopframe][0].shape)
+        x = x * skip
+        y = y * skip
+        frame = stopframe
+    path = []
+    while frame > start.frame:
+        path.append(annotations.Box(x, y,
+                                    x + start.width,
+                                    y + start.height,
+                                    frame))
+        x, y = (forwards[frame][1][x // skip, y // skip] * skip,
+                forwards[frame][2][x // skip, y // skip] * skip)
+        frame = frame - 1
+    path.append(start)
+    path.reverse()
+    return path
 
-def decimal_range(a, b, skip):
-    start = min(a, b)
-    stop = max(a, b)
-    list = []
-    next = start
-    while next < stop:
-        list.append(next)
-        next += skip
-    return list
+def buildgraph(frames, imagesize, model, costs,
+               double pairwisecost, double upperthreshold, int skip,
+               constraints):
 
-def calculateslidingspace(base, offset, frame):
-    xstart = max(0, base.xtl - offset)
-    xstop  = min(frame[0] - 1, base.xbr + offset) - 1
-    ystart = max(0, base.ytl - offset)
-    ystop  = min(frame[1] - 1, base.ybr + offset) - 1
-    return xstart, ystart, xstop, ystop
+    cdef double cost, wr, hr
+    cdef int width, height, usablewidth, usableheight
+    cdef numpy.ndarray[numpy.double_t, ndim=2] relevantcosts
+    cdef numpy.ndarray[numpy.double_t, ndim=2] current
+    cdef numpy.ndarray[numpy.int_t, ndim=2] xpointer, ypointer
+    cdef annotations.Box constraint
+    cdef annotations.Box start = constraints[0]
 
-cpdef buildslidingwindows(base, space, int skip):
+    cdef double Huge = 1e200
+
+    width, height = imagesize
+    wr = model.dim[0] / (<double>start.width)
+    hr = model.dim[1] / (<double>start.height)
+    usablewidth = <int>ceil((width - start.width) / <double>(skip))
+    usableheight = <int>ceil((height - start.height) / <double>(skip))
+
+    graph = {}
+
+    # walk along linear path
+    for frame in frames:
+        if frame == frames[0]:
+            current = numpy.zeros((usablewidth, usableheight),
+                                   dtype = numpy.double)
+            xpointer = None
+            ypointer = None
+        else:
+            current, xpointer, ypointer = pairwise.quadratic(current,
+                                                             pairwisecost)
+
+        for constraint in constraints:
+            if constraint.frame == frame:
+                current = numpy.ones((usablewidth, usableheight),
+                                      dtype = numpy.double)
+                current = current * Huge
+                #print "image", width, height
+                #print "usable", usablewidth, usableheight
+                #print "constraint", constraint.xtl, constraint.ytl, constraint
+                #print "start", start.width, start.height, str(start)
+                #print "ratio", wr, hr
+                #print "skip", skip
+                current[constraint.xtl // skip, constraint.ytl // skip] = 0
+                break
+        else:
+            relevantcosts = costs[frame]
+
+            for x in range(0, usablewidth):
+                for y in range(0, usableheight):
+                    cost  = relevantcosts[<int>(x*wr*skip), <int>(y*hr*skip)]
+                    cost  = min(cost, upperthreshold)
+                    current[x, y] += cost
+
+        graph[frame] = current, xpointer, ypointer
+    return graph
+
+def scoreframe(workorder):
     """
-    Generate sliding windows based off the image that are displaced and resized.
+    Convolves a learned weight vector against an image. This method
+    should take a workorder tuple because it can be used in multiprocessing.
     """
-    cdef int nextframe = base.frame
-    cdef int i, j
-    cdef int w = base.width, h = base.height
-    cdef int xstart = space[0], ystart = space[1]
-    cdef int xstop = space[2] - w, ystop = space[3] - h
-    boxes = []
-    for i from xstart < i < xstop by skip:
-        for j from ystart < j < ystop by skip:
-            boxes.append(annotations.Box(i, j, i + w, j + h, nextframe))
-    return boxes
+    images, start, frame, model = workorder
+
+    logger.debug("Scoring frame {0}".format(frame))
+
+    # resize image to so box has 'dim' in the resized space
+    image = images[frame]
+    width, height = image.size
+    wr = model.dim[0] / <double>(start.width)
+    hr = model.dim[1] / <double>(start.height)
+    rimage = image.resize((int(ceil(width * wr)), int(ceil(height * hr))), 2)
+
+    cost = convolution.hogrgbmean(rimage, model.dim,
+                              model.hogweights(),
+                              model.rgbweights(),
+    #                          rgbbin = model.rgbbin,
+                              hogbin = model.hogbin)
+
+    if debug:
+        pylab.set_cmap("gray")
+        pylab.title("min = {0}, max = {1}".format(cost.min(), cost.max()))
+        pylab.imshow(cost.transpose())
+        pylab.savefig("tmp/cost{0}.png".format(frame))
+        pylab.clf()
+
+    return frame, cost

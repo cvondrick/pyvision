@@ -22,7 +22,7 @@ class PathModel(object):
     """
 
     def __init__(self, images, givens, dim = (40,40), hogbin = 8,
-                 rgbbin = 8, bgskip = 4, bgsize = 5e4, c = 1.0):
+                 rgbbin = 8, bgskip = 2, bgsize = 5e4, c = 0.000001):
         """
         Constructs a path based model from the given path.
         """
@@ -40,6 +40,7 @@ class PathModel(object):
 
         logger.info("Learning weights for path with {0} foregrounds and "
                     "{1} backgrounds".format(len(positives), len(negatives)))
+        svm.sanity(negatives, positives)
         model = svm.train(negatives, positives, c = c)
         self.weights, self.bias = model.weights, model.bias
 
@@ -66,28 +67,30 @@ class PathModel(object):
             wr = float(dim[0]) / given.width
             hr = float(dim[1]) / given.height
             im = images[given.frame]
-            im = im.resize((int(im.size[0]*wr), int(im.size[1]*hr)))
+            im = im.resize((int(im.size[0]*wr), int(im.size[1]*hr)), 2)
             imw, imh = im.size
             mapped = given.transform(wr, hr)
 
             # positives
-#            patch = im.crop((xtl-hogbin, ytl-hogbin, xbr+hogbin, ybr+hogbin))
-#            hogpatch = features.hog(patch, hogbin)[1:-1,1:-1].flatten()
-#            rgbpatch = features.rgbhist(patch, rgbbin).flatten()
-#            positives.append(numpy.append(hogpatch, rgbpatch))
+            xtl, ytl, xbr, ybr = mapped[0:4]
+            patch = im.crop((xtl-hogbin, ytl-hogbin, xbr+hogbin, ybr+hogbin))
+            hogpatch = features.hog(patch, hogbin)[1:-1,1:-1].flatten()
+            patch = im.crop((xtl, ytl, xbr, ybr))
+            rgbpatch = features.rgbmean(patch)
+            positives.append(numpy.append(hogpatch, rgbpatch))
 
             # we shift the positives patch by a couple of pixels to have a 
             # larger training set
-            xtl, ytl, xbr, ybr = mapped[0:4]
-            for horzoffset in range(-hogbin+1, hogbin):
-                for vertoffset in range(-hogbin+1, hogbin):
-                    patch = im.crop((xtl-hogbin+horzoffset,
-                                     ytl-hogbin+vertoffset,
-                                     xbr+hogbin+horzoffset,
-                                     ybr+hogbin+vertoffset))
-                    hogpatch = features.hog(patch, hogbin)[1:-1,1:-1].flatten()
-                    rgbpatch = features.rgbhist(patch, rgbbin).flatten()
-                    positives.append(numpy.append(hogpatch, rgbpatch))
+#            xtl, ytl, xbr, ybr = mapped[0:4]
+#            for horzoffset in range(-hogbin+1, hogbin):
+#                for vertoffset in range(-hogbin+1, hogbin):
+#                    patch = im.crop((xtl-hogbin+horzoffset,
+#                                     ytl-hogbin+vertoffset,
+#                                     xbr+hogbin+horzoffset,
+#                                     ybr+hogbin+vertoffset))
+#                    hogpatch = features.hog(patch, hogbin)[1:-1,1:-1].flatten()
+#                    rgbpatch = features.rgbhist(patch, self.rgbbin).flatten()
+#                    positives.append(numpy.append(hogpatch, rgbpatch))
 
             logger.debug("Extracting negatives")
 
@@ -95,17 +98,15 @@ class PathModel(object):
             hogim = features.hog(im, hogbin)
             for i from 0 <= i < imw-dimw by bgskip:
                 for j from 0 <= j < imh-dimh by bgskip:
-                    if not annotations.Box(i/wr,
-                                           j/hr, 
-                                           (i + dimw)/wr,
-                                           (j + dimh)/hr).intersects(given):
+                    if annotations.Box(i/wr, j/hr, (i + dimw)/wr,
+                        (j + dimh)/hr).percentoverlap(given) < 0.5:
 
                         hogpatch = hogim[j/hogbin:(j+dimh)/hogbin-2,
                                          i/hogbin:(i+dimw)/hogbin-2, :]
                         hogpatch = hogpatch.flatten()
 
                         rgbpatchregion = (i, j, i+dimw, j+dimh)
-                        rgbpatch = features.rgbhist(im.crop(rgbpatchregion))
+                        rgbpatch = features.rgbmean(im.crop(rgbpatchregion))
                         rgbpatch = rgbpatch.flatten()
 
                         negatives.append(numpy.append(hogpatch, rgbpatch))

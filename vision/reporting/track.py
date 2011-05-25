@@ -16,9 +16,12 @@ A module to produce performance plots about tracking approaches.
 
 from vision.track import interpolation
 from vision.track import dp
+from vision import annotations
 from vision import frameiterator, readpaths
-from vision import alearn
+from vision.alearn import marginals
+from vision import visualize
 from math import ceil
+import itertools
 import pylab
 import logging
 import os
@@ -29,7 +32,7 @@ class Engine(object):
     """
     An engine to predict given a fixed number of clicks.
     """
-    def __call__(self, video, groundtruth, cpfs):
+    def __call__(self, video, groundtruths, cpfs, pool = None):
         """
         Returns a dictionary of predicted tracks given the ground truth. Each
         key in the dictionary must be a click-per-frame as specified by the
@@ -57,27 +60,38 @@ class FixedRateEngine(Engine):
     An abstract engine that uses a fixed skip interval (e.g., linear
     interpolation).
     """
-    def __call__(self, video, groundtruth, cpfs):
+    def __call__(self, video, gtruths, cpfs, pool = None):
         """
         Computes the correct skip for a given cpf and builds the dictionary.
         Child classes should implement predict().
         """
-        groundtruth.sort(key = lambda x: x.frame)
         result = {}
+        numframes = sum(x[-1].frame - x[0].frame for x in gtruths.values())
         for cpf in cpfs:
-            # compute how many clicks we have, but subtract one for end point
-            clicks = (groundtruth[-1].frame - groundtruth[0].frame) * cpf - 1
-            skip = int(ceil(len(groundtruth) / clicks))
-            given = groundtruth[::skip]
+            clicks = int(cpf * numframes)
+            usedclicks = 0
 
-            # add end point if it is missing
-            if groundtruth[-1].frame != given[-1].frame:
-                given.append(groundtruth[-1])
+            schedule = {}
+            for id, gtruth in gtruths.items():
+                gtruth.sort(key = lambda x: x.frame)
+                schedule[id] = int(ceil(clicks / float(gtruth[-1].frame - gtruth[0].frame)))
+                usedclicks += schedule[id]
+            for id, _ in zip(itertools.cycle(gtruths.keys()),
+                             range(clicks - usedclicks)):
+                schedule[id] += 1
 
-            result[cpf] = self.predict(video, given)
+            for id, gtruth in gtruths.items():
+                skip = int(ceil(float(gtruth[-1].frame - gtruth[0].frame) / schedule[id]))
+                given = gtruth[::skip]
+
+                if id not in result:
+                    result[id] = {}
+                result[id][cpf] = self.predict(video, given, gtruth[-1].frame,
+                                               pool = pool)
         return result
 
-    def predict(self, video, given):
+
+    def predict(self, video, given, last, pool):
         """
         Given a video and a sparse path, predict the missing annotations.
         """
@@ -88,9 +102,15 @@ class LinearInterpolationEngine(FixedRateEngine):
     Uses linear interpolation to predict missing annotations as a fixed rate
     engine.
     """
-    def predict(self, video, given):
-        return interpolation.LinearFill(given)
-
+    def predict(self, video, given, last, pool):
+        path = interpolation.LinearFill(given)
+        while path[-1].frame <= last:
+            path.append(annotations.Box(path[-1].xtl,
+                                        path[-1].ytl,
+                                        path[-1].xbr,
+                                        path[-1].ybr,
+                                        path[-1].frame + 1))
+        return path
     def color(self):
         return "b"
 
@@ -99,52 +119,90 @@ class DynamicProgrammingEngine(FixedRateEngine):
     Uses a dynamic programming based tracker to predict the missing
     annotations.
     """
-    def predict(self, video, given):
-        try:
-            return dp.fill(given, video)
-        except dp.TrackImpossible:
-            logger.error("Impossible track! Revert to linear.")
-            return interpolation.LinearFill(given)
+    def __init__(self, pairwisecost = 0.001, upperthreshold = 10, skip = 3, rgbbin = 8):
+        self.pairwisecost = pairwisecost
+        self.upperthreshold = upperthreshold
+        self.skip = skip
+        self.rgbbin = rgbbin
+
+    def predict(self, video, given, last, pool):
+        return dp.fill(given, video, last = last, pool = pool,
+                       pairwisecost = self.pairwisecost,
+                       upperthreshold = self.upperthreshold,
+                       skip = self.skip,
+                       rgbbin = self.rgbbin)
 
     def color(self):
         return "r"
 
-class ActiveLearnLinearEngine(Engine):
+class ActiveLearnDPEngine(Engine):
     """
-    Uses an active learning approach to annotate the most informative frames
-    with linear interpolation between clicks.
+    Uses an active learning approach to annotate the most informative frames.
     """
-    def __init__(self, pool = None):
-        self.pool = pool
+    def __init__(self, pairwisecost = 0.001, upperthreshold = 10, sigma = .1,
+                 erroroverlap = 0.5, skip = 3, rgbbin = 8):
+        self.pairwisecost = pairwisecost
+        self.upperthreshold = upperthreshold
+        self.sigma = sigma
+        self.erroroverlap = erroroverlap
+        self.skip = skip
+        self.rgbbin = rgbbin
 
-    def __call__(self, video, gtruth, cpfs):
-        reqclicks = []
-        for cpf in cpfs:
-            reqclicks.append((int((gtruth[-1].frame - gtruth[0].frame) * cpf),
-                              cpf))
+    def __call__(self, video, gtruths, cpfs, pool = None):
+        result = {}
+        pathdict = {}
+        for id, gtruth in gtruths.items():
+            gtruth.sort(key = lambda x: x.frame)
+            pathdict[id] = dict((x.frame, x) for x in gtruth)
+
+        requests = {}
+        for id, gtruth in gtruths.items():
+            frame, score, predicted = marginals.pick([gtruth[0]], video, 
+                                        last = gtruth[-1].frame,
+                                        pool = pool,
+                                        pairwisecost = self.pairwisecost,
+                                        upperthreshold = self.upperthreshold,
+                                        sigma = self.sigma,
+                                        erroroverlap = self.erroroverlap,
+                                        skip = self.skip,
+                                        rgbbin = self.rgbbin)
+                                                     
+            requests[id] = (score, frame, predicted, [gtruth[0]])
+            result[id] = {}
+        usedclicks = len(gtruths)
+
+        logger.info("Used {0} clicks!".format(usedclicks))
+
+        numframes = sum(x[-1].frame - x[0].frame for x in gtruths.values())
+        reqclicks = [(int(numframes * x), x) for x in cpfs]
         reqclicks.sort()
 
-        gtruth.sort(key = lambda x: x.frame)
-        gtruthdict = dict((x.frame, x) for x in gtruth)
-        given = [gtruth[0], gtruth[-1]]
-
-        numclicks = max(reqclicks)[0]
-        logger.info("Performing active learning for {0} clicks".format(numclicks))
-
-        simulation = {}
-        for clicks in range(2, numclicks + 1):
-            given.sort(key = lambda x: x.frame)
-            simulation[clicks] = interpolation.LinearFill(given)
-            wants = alearn.linear.pick(video, given, pool = self.pool)
-            given.append(gtruthdict[wants])
-
-        result = {}
         for clicks, cpf in reqclicks:
-            if clicks < 2:
-                result[cpf] = interpolation.LinearFill([gtruth[0], gtruth[-1]])
-            else:
-                result[cpf] = simulation[clicks]
+            for _ in range(clicks - usedclicks):
+                id = max((y[0], x) for x, y in requests.items())[1]
 
+                givens = list(requests[id][3])
+                givens.append(pathdict[id][requests[id][1]])
+                givens.sort(key = lambda x: x.frame)
+
+                frame, score, predicted = marginals.pick(givens, video,
+                                        last = max(pathdict[id]),
+                                        pool = pool,
+                                        pairwisecost = self.pairwisecost,
+                                        upperthreshold = self.upperthreshold,
+                                        sigma = self.sigma,
+                                        erroroverlap = self.erroroverlap,
+                                        skip = self.skip,
+                                        rgbbin = self.rgbbin)
+
+                requests[id] = (score, frame, predicted, givens)
+                usedclicks += 1
+
+                logger.info("Used {0} clicks with {1} total in this cpf!"
+                            .format(usedclicks, clicks))
+
+            for id, (_, _, path, _) in requests.iteritems():
+                result[id][cpf] = path
         return result
 
     def color(self):
@@ -166,22 +224,37 @@ class PercentOverlap(object):
     def __str__(self):
         return "Percent Overlap >= {0}".format(self.threshold)
 
+class Intersection(object):
+    def __call__(self, x, y):
+        if x.frame != y.frame:
+            raise RuntimeError("Frames do not match")
+
+        if x.intersects(y):
+            return 0
+        else:
+            return 1
+
+    def __str__(self):
+        return "Intersection"
+
 def filetovideo(base):
     def process(filename):
         name = os.path.splitext(os.path.basename(filename))[0]
         return frameiterator(base + "/" + name)
     return process
 
-def load(data, frames, onlylabels = None, breakup = True):
+def load(data, frames, onlylabels = None, breakup = True,
+         limit = None, toframe = None):
     """
     Produces a list over tracks found in the files for data. frames 
     should be a callable that returns a frame iterator.
     """ 
     result = []
+    numpaths = 0
     for file in data:
         video = frames(file)
-        paths = readpaths(open(file))
-        for label, path in paths:
+        paths = []
+        for label, path in readpaths(open(file)):
             if not onlylabels or label in onlylabels:
                 if breakup:
                     path.sort(key = lambda x: x.frame)
@@ -189,33 +262,69 @@ def load(data, frames, onlylabels = None, breakup = True):
                     for box in path:
                         if box.lost:
                             if currentpath:
-                                result.append((video, label, currentpath))
+                                paths.append((label, currentpath))
                                 currentpath = []
+                                numpaths += 1
                         else:
                             currentpath.append(box)
                     if currentpath:
-                        result.append((video, label, currentpath))
+                        paths.append((label, currentpath))
+                        numpaths += 1
                 else:
-                    result.append((video, label, path))
-    logger.info("Loaded {0} paths".format(len(result)))
+                    paths.append((label, path))
+                    numpaths += 1
+        result.append((video, paths))
+
+    # cut after a certain frame
+    if toframe:
+        cutresult = []
+        for video, paths in result:
+            pathsresult = []
+            for label, path in paths:
+                filtered = [x for x in path if x.frame <= toframe]
+                if filtered:
+                    pathsresult.append((label, filtered))
+            if pathsresult:
+                cutresult.append((video, pathsresult))
+        result = cutresult
+
+    # limit the number of videos
+    if limit:
+        limitresult = []
+        counter = 0
+        for video, paths in result:
+            pathsresult = []
+            for label, path in paths:
+                counter += 1
+                if counter <= limit:
+                    pathsresult.append((label, path))
+            if pathsresult:
+                limitresult.append((video, pathsresult))
+        result = limitresult
+
     return result
 
 def build(data, cpfs, engines, pool = None):
     """
-    Takes the data and runs the engines. For best performance, specify
-    pool to a multiprocessing.Pool object, which will allow this method to
-    run in parallel.
+    Takes the data and runs the engines.
     """
-    mapper = pool.map if pool else map
     result = {}
     for engine in engines:
         logger.info("Computing tracks with {0}".format(str(engine)))
-        result[engine] = mapper(build_do, ((x, cpfs, engine) for x in data))
-    return result
+        result[engine] = []
+        for video, paths in data:
+            for path in paths:
+                path[1].sort(key = lambda x: x.frame)
+            paths = [x[1] for x in paths]
 
-def build_do(workorder):
-    (video, label, path), cpfs, engine = workorder
-    return engine(video, path, cpfs), path
+            keys = range(len(paths))
+            paths = dict(zip(keys, paths))
+
+            predictions = engine(video, paths, cpfs, pool)
+
+            result[engine].extend((predictions[x], paths[x], video)
+                                  for x in keys)
+    return result
 
 def plotperformance(data, scorer):
     """
@@ -226,7 +335,7 @@ def plotperformance(data, scorer):
         logger.info("Plotting and scoring tracks for {0}".format(str(engine)))
         scores = {}
         lengths = {}
-        for prediction, groundtruth in predictions:
+        for prediction, groundtruth, video in predictions:
             for cpf, path in prediction.iteritems():
                 if cpf not in scores:
                     scores[cpf] = 0
@@ -244,6 +353,20 @@ def plotperformance(data, scorer):
         pylab.plot(x, y, "{0}.-".format(engine.color()), label = str(engine))
 
     pylab.ylabel("Average error per frame ({0})".format(str(scorer)))
-    pylab.xlabel("Average clicks per frame")
+    pylab.xlabel("Average clicks per frame per object")
     pylab.legend()
     pylab.show()
+
+def visualizepaths(data, dir):
+    for engine, predictions in data.iteritems():
+        for id, (prediction, groundtruth, video) in enumerate(predictions):
+            for cpf, path in prediction.iteritems():
+                logger.info("Visualizing engine {0} path {1} cpf {2}"
+                            .format(str(engine), id, cpf))
+                filepath = "{0}/{1}/{2}/{3}".format(dir, str(engine), id, cpf)
+                try:
+                    os.makedirs(filepath)
+                except OSError:
+                    pass
+                vis = visualize.highlight_paths(video, [path, groundtruth])
+                visualize.save(vis, lambda x: "{0}/{1}.jpg".format(filepath, x))

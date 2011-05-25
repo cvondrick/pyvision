@@ -1,5 +1,8 @@
 from vision import convolution
+from vision import Box
 from vision.track import interpolation
+from vision.track import dp
+from vision.model import PathModel
 import logging
 import numpy
 
@@ -19,9 +22,48 @@ cdef extern from "math.h":
 
 cdef double Infinity = 1e300
 
-def pick(start, stopframe, model, images,
-         pairwisecost = 0.001, upperthreshold = 10,
-         sigma = .1, erroroverlap = 0.5, pool = None):
+def pick(givens, images, last = None, 
+         pairwisecost = 0.001, upperthreshold = 10, sigma = .1,
+         erroroverlap = 0.5, skip = 3, dim = (40, 40), 
+         rgbbin = 8, hogbin = 8, c = 1, pool = None):
+
+    givens.sort(key = lambda x: x.frame)
+
+    model = PathModel(images, givens, rgbbin = rgbbin, hogbin = hogbin, c = c)
+    
+    fullpath = []
+    bestframe = None
+    bestscore = None
+    for x, y in zip(givens, givens[1:]):
+        logger.info("Scoring {0} to {1}".format(x.frame, y.frame))
+        if x.frame + 1 == y.frame:
+            fullpath.append(x)
+        else:
+            frame, score, path = picksegment(x, y, model, images, pairwisecost,
+                                    upperthreshold, sigma, erroroverlap, skip,
+                                    pool)
+            fullpath.extend(path[:-1])
+
+            if bestframe is None or score > bestscore:
+                bestscore = score
+                bestframe = frame
+
+    if last is not None and last > givens[-1].frame:
+        logger.info("Scoring {0} to last at {1}".format(givens[-1].frame, last))
+        frame, score, path = picksegment(givens[-1], last, model, images,
+                                         pairwisecost, upperthreshold, sigma,
+                                         erroroverlap, skip, pool)
+        fullpath.extend(path[:-1])
+
+        if bestframe is None or score > bestscore:
+            bestscore = score
+            bestframe = frame
+
+    return bestframe, bestscore, fullpath
+
+def picksegment(start, stop, model, images,
+               pairwisecost = 0.001, upperthreshold = 10,
+               sigma = .1, erroroverlap = 0.5, skip = 3, pool = None):
 
     if pool:
         logger.info("Found a process pool, so attempting to parallelize")
@@ -30,44 +72,79 @@ def pick(start, stopframe, model, images,
         logger.info("No process pool found, so remaining single threaded")
         mapper = map
 
-    frames = range(start.frame, stopframe + 1)
     imagesize = images[0].size
+
+    try:
+        stopframe = stop.frame
+    except:
+        stopframe = stop
+        constrained = False
+        constraints = [start]
+    else:
+        constrained = True
+        # adjust stop for scaling reasons
+        if stop.xtl + start.width >= imagesize[0]:
+            stopxtl = imagesize[0] - start.width - 1
+        else:
+            stopxtl = stop.xtl
+        if stop.ytl + start.height >= imagesize[1]:
+            stopytl = imagesize[1] - start.height - 1
+        else:
+            stopytl = stop.ytl
+        stop = Box(stopxtl, stopytl, stopxtl + start.width,
+                   stopytl + start.height, stop.frame)
+        constraints = [start, stop]
+
+    if start.frame == stopframe:
+        return start.frame, 0, [start]
+    elif start.frame + 1 == stopframe and constrained:
+        return start.frame, 0, [start, stop]
+    elif start.frame + 1 == stopframe:
+        return stopframe, 0, [start, stop]
+
+    frames = range(start.frame, stopframe + 1)
 
     # build dictionary of local scores
     # if there is a pool, this will happen in parallel
     logger.info("Scoring frames")
     orders = [(images, start, x, model) for x in frames]
-    costs = dict(mapper(scoreframe, orders))
+    costs = dict(mapper(dp.scoreframe, orders))
 
     # forward and backwards passes
     # if there is a pool, this will use up to 2 cores
     forwardsargs  = [frames, imagesize, model, costs, pairwisecost,
-                     upperthreshold, start]
+                     upperthreshold, skip, constraints]
     backwardsargs = list(forwardsargs)
     backwardsargs[0] = list(reversed(frames))
-    if pool:
+    if False and pool:
         logger.info("Building forwards and backwards graphs")
-        forwards  = pool.apply_async(buildgraph, forwardsargs)
-        backwards = buildgraph(*backwardsargs)
+        forwards  = pool.apply_async(dp.buildgraph, forwardsargs)
+        backwards = dp.buildgraph(*backwardsargs)
         forwards  = forwards.get() # blocks until forwards graph done
     else:
         logger.info("Building forwards graph")
-        forwards  = buildgraph(*forwardsargs)
+        forwards  = dp.buildgraph(*forwardsargs)
         logger.info("Building backwards graph")
-        backwards = buildgraph(*backwardsargs)
+        backwards = dp.buildgraph(*backwardsargs)
     
     # backtrack
     logger.info("Backtracking")
-    x, y = numpy.unravel_index(numpy.argmin(forwards[stopframe][0]),
-                                            forwards[stopframe][0].shape)
-    frame = stopframe
+    if constrained:
+        x, y, frame = stop.xtl, stop.ytl, stop.frame
+    else:
+        x, y = numpy.unravel_index(numpy.argmin(forwards[stopframe][0]),
+                                                forwards[stopframe][0].shape)
+        x = x * skip
+        y = y * skip
+        frame = stopframe
     path = []
     while frame > start.frame:
         path.append(annotations.Box(x, y,
                                     x + start.width,
                                     y + start.height,
                                     frame))
-        x, y = forwards[frame][1][x, y], forwards[frame][2][x, y]
+        x, y = (forwards[frame][1][x // skip, y // skip] * skip,
+                forwards[frame][2][x // skip, y // skip] * skip)
         frame = frame - 1
     path.append(start)
     path.reverse()
@@ -75,15 +152,17 @@ def pick(start, stopframe, model, images,
 
     # calculating error
     # if there is a pool, this will use up to 2 cores
-    if pool:
+    if False and pool:
         logger.info("Calculating forward and backwards errors")
         forwarderror  = pool.apply_async(calcerror, (pathdict,
                                                      forwards,
                                                      erroroverlap,
+                                                     skip,
                                                      frames))
         backwarderror = calcerror(pathdict,
                                   backwards,
                                   erroroverlap,
+                                  skip,
                                   list(reversed(frames)))
         forwarderror  = forwarderror.get() # blocks until forwards is done
     else:
@@ -91,11 +170,13 @@ def pick(start, stopframe, model, images,
         forwarderror  = calcerror(pathdict,
                                   forwards,
                                   erroroverlap,
+                                  skip,
                                   frames)
         logger.info("Calculating backward error")
         backwarderror = calcerror(pathdict,
                                   backwards,
                                   erroroverlap,
+                                  skip,
                                   list(reversed(frames)))
 
     # score marginals on the frames
@@ -103,7 +184,8 @@ def pick(start, stopframe, model, images,
     logger.info("Computing marginals")
     orders = [(forwards[x], backwards[x],
                forwarderror[x], backwarderror[x],
-               costs[x], sigma, model.dim, start, x) for x in frames[1:-1]]
+               costs[x], sigma, model.dim, start, skip, x)
+               for x in frames[1:-1]]
     marginals = mapper(scoremarginals, orders)
 
     if debug:
@@ -116,12 +198,13 @@ def pick(start, stopframe, model, images,
     best = max(marginals)
     return best[1], best[0], path
 
-cdef double calcerroroverlap(int i, int j, annotations.Box box, double thres):
-    boxw = box.xbr - box.xtl
-    boxh = box.ybr - box.ytl
+cdef double calcerroroverlap(int i, int j, annotations.Box box, double thres,
+                             int skip):
+    boxw = (box.xbr - box.xtl) // skip
+    boxh = (box.ybr - box.ytl) // skip
 
-    xdiff = min(i + boxw, box.xbr) - max(i, box.xtl) 
-    ydiff = min(j + boxh, box.ybr) - max(j, box.ytl) 
+    xdiff = min(i + boxw, box.xbr // skip) - max(i, box.xtl // skip) 
+    ydiff = min(j + boxh, box.ybr // skip) - max(j, box.ytl // skip) 
 
     if xdiff <= 0 or ydiff <= 0:
         error = 1.
@@ -134,7 +217,7 @@ cdef double calcerroroverlap(int i, int j, annotations.Box box, double thres):
             error = 1.
     return error
 
-def calcerror(pathdict, pointers, double erroroverlap, frames):
+def calcerror(pathdict, pointers, double erroroverlap, int skip, frames):
     """
     Calculates the error going through a path at a certain point.
 
@@ -157,7 +240,7 @@ def calcerror(pathdict, pointers, double erroroverlap, frames):
     previous = numpy.zeros(size, dtype = numpy.double)
     for i in range(w):
         for j in range(h):
-            previous[i, j] = calcerroroverlap(i, j, box, erroroverlap) 
+            previous[i, j] = calcerroroverlap(i, j, box, erroroverlap, skip) 
     graph[frame] = previous, previous
 
     # do the inductive steps
@@ -170,7 +253,7 @@ def calcerror(pathdict, pointers, double erroroverlap, frames):
 
         for i in range(w):
             for j in range(h):
-                error = calcerroroverlap(i, j, box, erroroverlap)
+                error = calcerroroverlap(i, j, box, erroroverlap, skip)
                 xp = xpointer[i, j]
                 yp = ypointer[i, j]
                 message = previous[xp, yp]
@@ -184,7 +267,7 @@ def scoremarginals(workorder):
     cdef double sigma
     cdef int frame
     cdef annotations.Box start
-    (forw, backw, forwerr, backwerr, costs, sigma, dim, start, frame) = workorder
+    (forw, backw, forwerr, backwerr, costs, sigma, dim, start, skip, frame) = workorder
 
     cdef double score = 0, normalizer = 0, matchscore, error, localscore
 
@@ -204,6 +287,7 @@ def scoremarginals(workorder):
     cdef numpy.ndarray[numpy.double_t, ndim=2] gprob = numpy.zeros((w, h))
     cdef numpy.ndarray[numpy.double_t, ndim=2] greduct = numpy.zeros((w, h))
     cdef numpy.ndarray[numpy.double_t, ndim=2] gerrors = numpy.zeros((w, h))
+    cdef numpy.ndarray[numpy.double_t, ndim=2] gmargin = numpy.zeros((w, h))
 
     cdef numpy.ndarray[numpy.double_t, ndim=2] matchscores
     matchscores = numpy.zeros((w, h))
@@ -247,6 +331,9 @@ def scoremarginals(workorder):
     for i in range(w):
         for j in range(h):
             matchscore = matchscores[i, j] - maxmatchscore
+
+            gmargin[i, j] = matchscore
+
             matchscore = exp(-matchscore / sigma)
 
             localscore = matchscore * errors[i, j]
@@ -266,6 +353,13 @@ def scoremarginals(workorder):
         pylab.savefig("tmp/prob{0}.png".format(frame))
         pylab.clf()
 
+        gmargin = -gmargin
+        pylab.set_cmap("gray")
+        pylab.title("min = {0}, max = {1}".format(gmargin.min(), gmargin.max()))
+        pylab.imshow(gmargin.transpose())
+        pylab.savefig("tmp/margin{0}.png".format(frame))
+        pylab.clf()
+
         pylab.set_cmap("gray")
         pylab.title("min = {0}, max = {1}".format(greduct.min(), greduct.max()))
         pylab.imshow(greduct.transpose())
@@ -280,252 +374,3 @@ def scoremarginals(workorder):
 
     return score / normalizer, frame
 
-def buildgraph(frames, imagesize, model, costs,
-               double pairwisecost, double upperthreshold,
-               annotations.Box start):
-
-    cdef double cost, wr, hr
-    cdef int width, height, usablewidth, usableheight
-    cdef numpy.ndarray[numpy.double_t, ndim=2] relevantcosts
-    cdef numpy.ndarray[numpy.double_t, ndim=2] current
-    cdef numpy.ndarray[numpy.int_t, ndim=2] xpointer, ypointer
-
-    cdef double Huge = 1e200
-
-    width, height = imagesize
-    usablewidth = width - start.width - 1
-    usableheight = height - start.height - 1
-    wr = model.dim[0] / (<double>start.width)
-    hr = model.dim[1] / (<double>start.height)
-
-    graph = {}
-
-    # walk along linear path
-    for frame in frames:
-        if frame == frames[0]:
-            current = numpy.zeros((usablewidth, usableheight),
-                                   dtype = numpy.double)
-            xpointer = None
-            ypointer = None
-        else:
-            current, xpointer, ypointer = pairwise_quadratic(current,
-                                                             pairwisecost)
-
-        if frame == start.frame:
-            current = numpy.zeros((usablewidth, usableheight),
-                                   dtype = numpy.double)
-            current = current * Huge
-            current[<int>start.xtl, <int>start.ytl] = 0
-        else:
-            relevantcosts = costs[frame]
-            for x in range(0, usablewidth):
-                for y in range(0, usableheight):
-                    cost  = relevantcosts[<int>(x*wr), <int>(y*hr)]
-                    cost  = min(cost, upperthreshold)
-                    current[x, y] += cost
-
-        graph[frame] = current, xpointer, ypointer
-    return graph
-
-# see Pedro Felzenszwalb et. al
-cpdef pairwise_quadratic_1d(numpy.ndarray[numpy.double_t, ndim=1] src,
-                            numpy.ndarray[numpy.double_t, ndim=1] dst,
-                            numpy.ndarray[numpy.int_t, ndim=1] ptr,
-                            int step, int n, double a, double b, int o):
-    
-    cdef numpy.ndarray[numpy.int_t, ndim=1] v = numpy.zeros(n, dtype=numpy.int)
-    cdef numpy.ndarray[numpy.double_t, ndim=1] z = numpy.zeros(n+1,
-                                                   dtype = numpy.double)
-    cdef int k = 0
-    v[0] = 0
-    z[0] = -Infinity
-    z[1] = Infinity
-
-    cdef int q
-    cdef double s
-
-    for q in range(1, n):
-        s = ((src[q*step+o]-src[v[k]*step+o])-b*(q-v[k])+a*(q**2-v[k]**2))
-        s = s / (2*a*(q-v[k]))
-
-        while s <= z[k]:
-            k = k - 1
-            s = ((src[q*step+o]-src[v[k]*step+o])-b*(q-v[k])+a*(q**2-v[k]**2))
-            s = s / (2*a*(q-v[k]))
-
-        k = k + 1
-        v[k] = q
-        z[k] = s
-        z[k+1] = Infinity
-
-    k = 0
-    for q in range(0, n):
-        while z[k+1] < q:
-            k = k + 1
-        dst[q*step+o] = a*(q-v[k])**2 + b*(q-v[k]) + src[v[k]*step+o]
-        ptr[q*step+o] = v[k]
-
-# see Pedro Felzenszwalb et. al
-def pairwise_quadratic(numpy.ndarray[numpy.double_t, ndim=2] scores,
-                       double cost):
-    cdef int w, h, x, y, p
-    w = scores.shape[0]
-    h = scores.shape[1]
-
-    cdef numpy.ndarray[numpy.double_t, ndim=1] vals = scores.flatten()
-
-    cdef numpy.ndarray[numpy.double_t, ndim=1] M = numpy.zeros(w*h, 
-                                                   dtype = numpy.double)
-    cdef numpy.ndarray[numpy.int_t, ndim=2] Ix = numpy.zeros((w, h), 
-                                                 dtype = numpy.int)
-    cdef numpy.ndarray[numpy.int_t, ndim=2] Iy = numpy.zeros((w, h), 
-                                                 dtype = numpy.int)
-
-    cdef numpy.ndarray[numpy.double_t, ndim=1] tmpM = numpy.zeros(w*h, 
-                                                      dtype = numpy.double)
-    cdef numpy.ndarray[numpy.int_t, ndim=1] tmpIx = numpy.zeros(w*h, 
-                                                    dtype = numpy.int)
-    cdef numpy.ndarray[numpy.int_t, ndim=1] tmpIy = numpy.zeros(w*h, 
-                                                    dtype = numpy.int)
-
-    for x in range(w):
-        pairwise_quadratic_1d(vals, tmpM, tmpIy, 1, h, cost, 0, x * h)
-
-    for y in range(h):
-        pairwise_quadratic_1d(tmpM, M, tmpIx, h, w, cost, 0, y)
-
-    for x in range(w):
-        for y in range(h):
-            p = x * h + y
-            Ix[x, y] = tmpIx[p]
-            Iy[x, y] = tmpIy[tmpIx[p]*h+y]
-
-    return M.reshape((w,h)), Ix, Iy
-
-def pairwise_manhattan(inscores, incost):
-    cdef int w, h, i, j, ri, rj
-    w, h = inscores.shape
-
-    cdef double cost = incost
-    cdef numpy.ndarray[numpy.double_t, ndim=2] scores = inscores
-
-    cdef numpy.ndarray[numpy.double_t, ndim=2] forward, backward
-    cdef numpy.ndarray[numpy.int_t, ndim=2] forwardxp, forwardyp
-    cdef numpy.ndarray[numpy.int_t, ndim=2] backwardxp, backwardyp
-
-    forward = numpy.zeros((w,h), dtype = numpy.double)
-    forwardxp = numpy.zeros((w,h), dtype = numpy.int)
-    forwardyp = numpy.zeros((w,h), dtype = numpy.int)
-    backward = numpy.zeros((w,h), dtype = numpy.double)
-    backwardxp = numpy.zeros((w,h), dtype = numpy.int)
-    backwardyp = numpy.zeros((w,h), dtype = numpy.int)
-
-    # forward pass
-    for i in range(w):
-        for j in range(h):
-            forward[i, j] = scores[i, j]
-            forwardxp[i, j] = i
-            forwardyp[i, j] = j
-
-            if j-1 >= 0 and forward[i, j-1] + cost < forward[i, j]:
-                forward[i, j] = forward[i, j-1] + cost
-                forwardxp[i, j] = forwardxp[i, j-1]
-                forwardyp[i, j] = forwardyp[i, j-1]
-            if i-1 >= 0 and forward[i-1, j] + cost < forward[i, j]:
-                forward[i, j] = forward[i-1, j] + cost
-                forwardxp[i, j] = forwardxp[i-1, j]
-                forwardyp[i, j] = forwardyp[i-1, j]
-
-    # backwards pass
-    for ri in range(w):
-        i = w - ri - 1
-        for rj in range(h):
-            j = h - rj - 1
-            backward[i, j] = forward[i, j]
-            backwardxp[i, j] = forwardxp[i, j]
-            backwardyp[i, j] = forwardyp[i, j]
-
-            if j+1 < h and backward[i, j+1] + cost < backward[i, j]:
-                backward[i, j] = backward[i, j+1] + cost
-                backwardxp[i, j] = backwardxp[i, j+1]
-                backwardyp[i, j] = backwardyp[i, j+1]
-            if i+1 < w and backward[i+1, j] + cost < backward[i, j]:
-                backward[i, j] = backward[i+1, j] + cost
-                backwardxp[i, j] = backwardxp[i+1, j]
-                backwardyp[i, j] = backwardyp[i+1, j]
-
-    return backward, backwardxp, backwardyp
-
-def pairwise_hinge(inscores, int radius = 30):
-    cdef int w, h, i, j, pstart, pstop, x, y 
-    w, h = inscores.shape
-
-    cdef numpy.ndarray[numpy.double_t, ndim=2] scores = inscores
-    cdef numpy.ndarray[numpy.double_t, ndim=2] vertical, horizontal
-    cdef numpy.ndarray[numpy.int_t, ndim=2] xp, yp
-
-    vertical = numpy.zeros((w,h), dtype = numpy.double)
-    horizontal = numpy.zeros((w,h), dtype = numpy.double)
-    xp = numpy.zeros((w,h), dtype = numpy.int)
-    yp = numpy.zeros((w,h), dtype = numpy.int)
-
-    for i in range(w):
-        for j in range(h):
-            pstart = j - radius
-            pstop  = j + radius 
-            if pstart < 0:
-                pstart = 0
-            if pstop > h:
-                pstop = h
-            vertical[i, j] = scores[i, j]
-            yp[i, j] = j
-            for y in range(pstart, pstop): 
-                if scores[i, y] < vertical[i, j]:
-                    vertical[i, j] = scores[i, y]
-                    yp[i, j] = y
-
-    for i in range(w):
-        for j in range(h):
-            pstart = i - radius
-            pstop  = i + radius
-            if pstart < 0:
-                pstart = 0
-            if pstop > w:
-                pstop = w
-            horizontal[i, j] = vertical[i, j]
-            xp[i, j] = i
-            for x in range(pstart, pstop):
-                if vertical[x, j] < horizontal[i, j]:
-                    horizontal[i, j] = vertical[x, j]
-                    xp[i, j] = x
-
-    return horizontal, xp, yp
-
-def scoreframe(workorder):
-    """
-    Convolves a learned weight vector against an image. This method
-    should take a workorder tuple because it can be used in multiprocessing.
-    """
-    images, start, frame, model = workorder
-
-    logger.debug("Scoring frame {0}".format(frame))
-
-    # resize image to so box has 'dim' in the resized space
-    image = images[frame]
-    width, height = image.size
-    wr = model.dim[0] / <double>(start.width)
-    hr = model.dim[1] / <double>(start.height)
-    rimage = image.resize((int(width * wr), int(height * hr)), 2)
-
-    cost = convolution.hogrgb(rimage, model.dim,
-                              model.hogweights(),
-                              model.rgbweights())
-
-    if debug:
-        pylab.set_cmap("gray")
-        pylab.title("min = {0}, max = {1}".format(cost.min(), cost.max()))
-        pylab.imshow(cost.transpose())
-        pylab.savefig("tmp/cost{0}.png".format(frame))
-        pylab.clf()
-
-    return frame, cost
