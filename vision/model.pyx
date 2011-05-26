@@ -73,8 +73,10 @@ class PathModel(object):
 
             # positives
             xtl, ytl, xbr, ybr = mapped[0:4]
-            patch = im.crop((xtl-hogbin, ytl-hogbin, xbr+hogbin, ybr+hogbin))
-            hogpatch = features.hog(patch, hogbin)[1:-1,1:-1].flatten()
+            patch = im.crop((xtl-hogbin*2, ytl-hogbin*2,
+                             xbr+hogbin*2, ybr+hogbin*2))
+            hogpatch = features.hog(patch, hogbin)[1:-1,1:-1,:]
+            hogpatch = hogpatch.flatten()
             patch = im.crop((xtl, ytl, xbr, ybr))
             rgbpatch = features.rgbmean(patch)
             positives.append(numpy.append(hogpatch, rgbpatch))
@@ -96,13 +98,18 @@ class PathModel(object):
 
             # negatives
             hogim = features.hog(im, hogbin)
+            hogim = features.hogpad(hogim)
             for i from 0 <= i < imw-dimw by bgskip:
                 for j from 0 <= j < imh-dimh by bgskip:
                     if annotations.Box(i/wr, j/hr, (i + dimw)/wr,
                         (j + dimh)/hr).percentoverlap(given) < 0.5:
 
-                        hogpatch = hogim[j/hogbin:(j+dimh)/hogbin-2,
-                                         i/hogbin:(i+dimw)/hogbin-2, :]
+                        hogj = j/hogbin 
+                        hogjs = (j+dimh)/hogbin 
+                        hogi = i/hogbin 
+                        hogis = (i+dimw)/hogbin 
+
+                        hogpatch = hogim[hogj:hogjs, hogi:hogis, :]
                         hogpatch = hogpatch.flatten()
 
                         rgbpatchregion = (i, j, i+dimw, j+dimh)
@@ -118,14 +125,14 @@ class PathModel(object):
         """
         Returns the SVM weights just for the HOG features.
         """
-        x = self.dim[0]/self.hogbin-2
-        y = self.dim[1]/self.hogbin-2
+        x = self.dim[0]/self.hogbin
+        y = self.dim[1]/self.hogbin
         return self.weights[0:x*y*13].reshape((y, x, 13))
 
     def rgbweights(self):
         """
         Returns the SVM weights just for the RGB features.
         """
-        x = self.dim[0]/self.hogbin-2
-        y = self.dim[1]/self.hogbin-2
+        x = self.dim[0]/self.hogbin
+        y = self.dim[1]/self.hogbin
         return self.weights[x*y*13:]

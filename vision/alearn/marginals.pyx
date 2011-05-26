@@ -346,18 +346,18 @@ def scoremarginals(workorder):
             normalizer += matchscore
 
     if debug:
-        pylab.set_cmap("gray")
-        gprob = gprob / normalizer
-        pylab.title("min = {0}, max = {1}".format(gprob.min(), gprob.max()))
-        pylab.imshow(gprob.transpose())
-        pylab.savefig("tmp/prob{0}.png".format(frame))
-        pylab.clf()
-
         gmargin = -gmargin
         pylab.set_cmap("gray")
         pylab.title("min = {0}, max = {1}".format(gmargin.min(), gmargin.max()))
         pylab.imshow(gmargin.transpose())
         pylab.savefig("tmp/margin{0}.png".format(frame))
+        pylab.clf()
+
+        pylab.set_cmap("gray")
+        gprob = gprob / normalizer
+        pylab.title("min = {0}, max = {1}".format(gprob.min(), gprob.max()))
+        pylab.imshow(gprob.transpose())
+        pylab.savefig("tmp/prob{0}.png".format(frame))
         pylab.clf()
 
         pylab.set_cmap("gray")

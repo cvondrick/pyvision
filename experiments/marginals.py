@@ -31,18 +31,26 @@ g = frameiterator("/scratch/vatic/syn-many")
 b = [Box(461, 131, 461 + 67, 131 + 101, 0)]
 stop = 900
 
+#g = frameiterator("/scratch/virat/frames/VIRAT_S_050201_00_000012_000116")
+#b = [Box(340, 324, 340 + 108, 324 + 56, 0)]
+#stop = 100
+
+#g = frameiterator("/scratch/virat/frames/VIRAT_S_040302_01_001240_001586")
+#b = [Box(498, 336, 498 + 131, 336 + 68, 200)]
+#stop = 400
+
 pool = multiprocessing.Pool(24)
 
 frame, score, path = marginals.pick(b, g,
                                     last = stop,
                                     pool = pool,
-                                    pairwisecost = .001,
+                                    pairwisecost = .0001,
                                     dim = (40, 40),
                                     sigma = 1000,
                                     erroroverlap = 0.5,
                                     rgbbin = 16,
-                                    hogbin = 8,
-                                    c = 0.1)
+                                    hogbin = 4,
+                                    c = 1)
 
 visualize.save(visualize.highlight_paths(g, [path]), lambda x: "tmp/path{0}.jpg".format(x))
 

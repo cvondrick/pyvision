@@ -66,8 +66,6 @@ cpdef hog(im, int sbin = 8):
     norm = np.zeros(shape=(blocks0 * blocks1), dtype=np.double)
     feat = np.zeros(shape=(out0, out1, out2), dtype=np.double)
 
-    return feat
-
     for x from 1 <= x < visible1 - 1:
         for y from 1 <= y < visible0 - 1:
             dy = data[y + 1, x, cc0] - data[y - 1, x, cc0]
@@ -177,6 +175,18 @@ cpdef hog(im, int sbin = 8):
             feat[y, x, 12] = 0.2357 * t4
     
     return feat
+
+cpdef hogpad(np.ndarray[np.double_t, ndim=3] hog):
+    cdef np.ndarray[np.double_t, ndim=3] out
+    cdef int i, j, k
+    cdef int w = hog.shape[0], h = hog.shape[1], z = hog.shape[2]
+    out = np.zeros((w + 2, h + 2, z))
+
+    for i in range(w):
+        for j in range(h):
+            for k in range(z):
+                out[i+1, j+1, k] = hog[i, j, k]
+    return out
 
 cpdef rgbhist(im, int binsize = 8):
     """

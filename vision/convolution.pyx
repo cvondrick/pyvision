@@ -124,6 +124,7 @@ cpdef hogrgbmean(image, filtersize, hogfilter, rgbfilter, int hogbin = 8):
     # efficiently precompute hog features
     cdef np.ndarray[ndim=3, dtype=np.double_t] hogfeat
     hogfeat = features.hog(image, hogbin)
+    hogfeat = features.hogpad(hogfeat)
     cdef np.ndarray[ndim=3, dtype=np.double_t] hogfiltert = hogfilter
 
     # efficiently precompute integral rgb score image
@@ -159,7 +160,8 @@ cpdef hogrgbmean(image, filtersize, hogfilter, rgbfilter, int hogbin = 8):
     cdef int hfwidth = hogfilter.shape[0], hfheight = hogfilter.shape[1]
     cdef double hogscore, rgbscore, hogfeatvalue, hogfiltervalue
     cdef np.ndarray[ndim=2, dtype=np.double_t] output
-    output = np.zeros((width - filterwidth, height - filterheight))
+    output = np.zeros((width - filterwidth,
+                       height - filterheight))
 
     for i from 0 <= i < width - filterwidth:
         for j from 0 <= j < height - filterheight:
@@ -168,7 +170,8 @@ cpdef hogrgbmean(image, filtersize, hogfilter, rgbfilter, int hogbin = 8):
             for hfi from 0 <= hfi < hfwidth:
                 for hfj from 0 <= hfj < hfheight:
                     for hfk from 0 <= hfk < 13:
-                        hogfeatvalue = hogfeat[j/8+hfj, i/8+hfi, hfk] 
+                        hogfeatvalue = hogfeat[j/hogbin+hfj, 
+                                               i/hogbin+hfi, hfk] 
                         hogfiltervalue = hogfiltert[hfj, hfi, hfk]
                         hogscore += hogfeatvalue * hogfiltervalue
 
