@@ -20,7 +20,7 @@ from vision import annotations
 from vision import frameiterator, readpaths
 from vision.alearn import marginals
 from vision import visualize
-from math import ceil
+from math import ceil, floor
 import itertools
 import pylab
 import logging
@@ -71,14 +71,24 @@ class FixedRateEngine(Engine):
             clicks = int(cpf * numframes)
             usedclicks = 0
 
+            logger.info("CPF {0} has {1} clicks".format(cpf, clicks))
+
             schedule = {}
             for id, gtruth in gtruths.items():
                 gtruth.sort(key = lambda x: x.frame)
-                schedule[id] = int(ceil(clicks / float(gtruth[-1].frame - gtruth[0].frame)))
+                pathclicks = clicks 
+                pathclicks *= float(gtruth[-1].frame - gtruth[0].frame)
+                pathclicks /= numframes
+                pathclicks = int(floor(pathclicks))
+                schedule[id] = pathclicks
                 usedclicks += schedule[id]
             for id, _ in zip(itertools.cycle(gtruths.keys()),
                              range(clicks - usedclicks)):
                 schedule[id] += 1
+
+            for id, clicksinschedule in schedule.items():
+                logger.info("ID {0} has {1} clicks".format(id,
+                    clicksinschedule))
 
             for id, gtruth in gtruths.items():
                 skip = int(ceil(float(gtruth[-1].frame - gtruth[0].frame) / schedule[id]))
@@ -119,18 +129,20 @@ class DynamicProgrammingEngine(FixedRateEngine):
     Uses a dynamic programming based tracker to predict the missing
     annotations.
     """
-    def __init__(self, pairwisecost = 0.001, upperthreshold = 10, skip = 3, rgbbin = 8):
+    def __init__(self, pairwisecost = 0.001, upperthreshold = 10, skip = 3, rgbbin = 8, hogbin = 8):
         self.pairwisecost = pairwisecost
         self.upperthreshold = upperthreshold
         self.skip = skip
         self.rgbbin = rgbbin
+        self.hogbin = hogbin
 
     def predict(self, video, given, last, pool):
         return dp.fill(given, video, last = last, pool = pool,
                        pairwisecost = self.pairwisecost,
                        upperthreshold = self.upperthreshold,
                        skip = self.skip,
-                       rgbbin = self.rgbbin)
+                       rgbbin = self.rgbbin,
+                       hogbin = self.hogbin)
 
     def color(self):
         return "r"
@@ -140,13 +152,14 @@ class ActiveLearnDPEngine(Engine):
     Uses an active learning approach to annotate the most informative frames.
     """
     def __init__(self, pairwisecost = 0.001, upperthreshold = 10, sigma = .1,
-                 erroroverlap = 0.5, skip = 3, rgbbin = 8):
+                 erroroverlap = 0.5, skip = 3, rgbbin = 8, hogbin = 8):
         self.pairwisecost = pairwisecost
         self.upperthreshold = upperthreshold
         self.sigma = sigma
         self.erroroverlap = erroroverlap
         self.skip = skip
         self.rgbbin = rgbbin
+        self.hogbin = hogbin
 
     def __call__(self, video, gtruths, cpfs, pool = None):
         result = {}
@@ -157,15 +170,16 @@ class ActiveLearnDPEngine(Engine):
 
         requests = {}
         for id, gtruth in gtruths.items():
-            frame, score, predicted = marginals.pick([gtruth[0]], video, 
-                                        last = gtruth[-1].frame,
-                                        pool = pool,
-                                        pairwisecost = self.pairwisecost,
-                                        upperthreshold = self.upperthreshold,
-                                        sigma = self.sigma,
-                                        erroroverlap = self.erroroverlap,
-                                        skip = self.skip,
-                                        rgbbin = self.rgbbin)
+            frame, score, predicted, _ = marginals.pick([gtruth[0]], video, 
+                                         last = gtruth[-1].frame,
+                                         pool = pool,
+                                         pairwisecost = self.pairwisecost,
+                                         upperthreshold = self.upperthreshold,
+                                         sigma = self.sigma,
+                                         erroroverlap = self.erroroverlap,
+                                         skip = self.skip,
+                                         rgbbin = self.rgbbin,
+                                         hogbin = self.hogbin)
                                                      
             requests[id] = (score, frame, predicted, [gtruth[0]])
             result[id] = {}
@@ -185,7 +199,7 @@ class ActiveLearnDPEngine(Engine):
                 givens.append(pathdict[id][requests[id][1]])
                 givens.sort(key = lambda x: x.frame)
 
-                frame, score, predicted = marginals.pick(givens, video,
+                frame, score, predicted, _ = marginals.pick(givens, video,
                                         last = max(pathdict[id]),
                                         pool = pool,
                                         pairwisecost = self.pairwisecost,
@@ -193,7 +207,8 @@ class ActiveLearnDPEngine(Engine):
                                         sigma = self.sigma,
                                         erroroverlap = self.erroroverlap,
                                         skip = self.skip,
-                                        rgbbin = self.rgbbin)
+                                        rgbbin = self.rgbbin,
+                                        hogbin = self.hogbin)
 
                 requests[id] = (score, frame, predicted, givens)
                 usedclicks += 1
@@ -350,7 +365,8 @@ def plotperformance(data, scorer):
             scores[cpf] = scores[cpf] / float(lengths[cpf])
 
         x, y = zip(*sorted(scores.items()))
-        pylab.plot(x, y, "{0}.-".format(engine.color()), label = str(engine))
+        pylab.plot(x, y, "{0}.-".format(engine.color()), label = str(engine),
+                   linewidth = 4)
 
     pylab.ylabel("Average error per frame ({0})".format(str(scorer)))
     pylab.xlabel("Average clicks per frame per object")

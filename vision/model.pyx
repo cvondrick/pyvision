@@ -61,6 +61,7 @@ class PathModel(object):
 
         positives = []
         negatives = []
+        negativesperframe = int(bgsize / len(givens))
         for given in givens:
             logger.debug("Extracting features from "
                          "frame {0}".format(given.frame))
@@ -99,26 +100,32 @@ class PathModel(object):
             # negatives
             hogim = features.hog(im, hogbin)
             hogim = features.hogpad(hogim)
+            framenegatives = []
             for i from 0 <= i < imw-dimw by bgskip:
                 for j from 0 <= j < imh-dimh by bgskip:
                     if annotations.Box(i/wr, j/hr, (i + dimw)/wr,
                         (j + dimh)/hr).percentoverlap(given) < 0.5:
+                        framenegatives.append((i, j))
 
-                        hogj = j/hogbin 
-                        hogjs = (j+dimh)/hogbin 
-                        hogi = i/hogbin 
-                        hogis = (i+dimw)/hogbin 
+            logger.debug("Sampling negatives")
+            if len(framenegatives) > negativesperframe:
+                framenegatives = random.sample(framenegatives,
+                                               negativesperframe)
 
-                        hogpatch = hogim[hogj:hogjs, hogi:hogis, :]
-                        hogpatch = hogpatch.flatten()
+            for i, j in framenegatives: 
+                hogj = j/hogbin 
+                hogjs = (j+dimh)/hogbin 
+                hogi = i/hogbin 
+                hogis = (i+dimw)/hogbin 
 
-                        rgbpatchregion = (i, j, i+dimw, j+dimh)
-                        rgbpatch = features.rgbmean(im.crop(rgbpatchregion))
-                        rgbpatch = rgbpatch.flatten()
+                hogpatch = hogim[hogj:hogjs, hogi:hogis, :]
+                hogpatch = hogpatch.flatten()
 
-                        negatives.append(numpy.append(hogpatch, rgbpatch))
-        if len(negatives) > bgsize:
-            negatives = random.sample(negatives, int(bgsize))
+                rgbpatchregion = (i, j, i+dimw, j+dimh)
+                rgbpatch = features.rgbmean(im.crop(rgbpatchregion))
+                rgbpatch = rgbpatch.flatten()
+
+                negatives.append(numpy.append(hogpatch, rgbpatch))
         return positives, negatives
 
     def hogweights(self):

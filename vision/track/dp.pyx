@@ -12,7 +12,7 @@ import logging
 cimport numpy
 from vision cimport annotations
 
-cdef int debug = 1
+cdef int debug = 0
 
 if debug:
     import pylab
@@ -20,8 +20,8 @@ if debug:
 logger = logging.getLogger("vision.track.dp")
 
 def fill(givens, images, last = None, 
-         pairwisecost = 0.001, upperthreshold = 10, skip = 3, 
-         rgbbin = 8, hogbin = 8, c = 1, pool = None):
+         pairwisecost = 0.001, upperthreshold = 10, lowerthreshold = -100,
+         skip = 3, rgbbin = 8, hogbin = 8, c = 1, pool = None):
 
     givens.sort(key = lambda x: x.frame)
 
@@ -30,18 +30,19 @@ def fill(givens, images, last = None,
     fullpath = []
     for x, y in zip(givens, givens[1:]):
         path = track(x, y, model, images, pairwisecost,
-                    upperthreshold, skip, pool)
+                    upperthreshold, lowerthreshold, skip, pool)
         fullpath.extend(path[:-1])
 
     if last is not None and last > givens[-1].frame:
         path = track(givens[-1], last, model, images,
-                     pairwisecost, upperthreshold, skip, pool)
+                     pairwisecost, upperthreshold, lowerthreshold, skip, pool)
         fullpath.extend(path[:-1])
 
     return fullpath
 
 def track(start, stop, model, images,
-          pairwisecost = 0.001, upperthreshold = 10, skip = 3, pool = None):
+          pairwisecost = 0.001, upperthreshold = 10, lowerthreshold = -100,
+          skip = 3, pool = None):
 
     imagesize = images[start.frame].size
 
@@ -84,7 +85,7 @@ def track(start, stop, model, images,
     # forward and backwards passes
     # if there is a pool, this will use up to 2 cores
     forwardsargs  = [frames, imagesize, model, costs, pairwisecost,
-                     upperthreshold, skip, constraints]
+                     upperthreshold, lowerthreshold, skip, constraints]
     logger.info("Building forwards graph")
     forwards  = buildgraph(*forwardsargs)
     
@@ -112,8 +113,8 @@ def track(start, stop, model, images,
     return path
 
 def buildgraph(frames, imagesize, model, costs,
-               double pairwisecost, double upperthreshold, int skip,
-               constraints):
+               double pairwisecost, double upperthreshold, 
+               double lowerthreshold, int skip, constraints):
 
     cdef double cost, wr, hr
     cdef int width, height, usablewidth, usableheight
@@ -164,6 +165,7 @@ def buildgraph(frames, imagesize, model, costs,
                 for y in range(0, usableheight):
                     cost  = relevantcosts[<int>(x*wr*skip), <int>(y*hr*skip)]
                     cost  = min(cost, upperthreshold)
+                    cost  = max(cost, lowerthreshold)
                     current[x, y] += cost
 
         graph[frame] = current, xpointer, ypointer

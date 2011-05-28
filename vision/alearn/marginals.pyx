@@ -10,7 +10,7 @@ cimport numpy
 
 from vision cimport annotations
 
-cdef int debug = 1
+cdef int debug = 0
 
 if debug:
     import pylab
@@ -23,47 +23,51 @@ cdef extern from "math.h":
 cdef double Infinity = 1e300
 
 def pick(givens, images, last = None, 
-         pairwisecost = 0.001, upperthreshold = 10, sigma = .1,
-         erroroverlap = 0.5, skip = 3, dim = (40, 40), 
-         rgbbin = 8, hogbin = 8, c = 1, pool = None):
+         pairwisecost = 0.001, upperthreshold = 10, lowerthreshold = -100,
+         sigma = .1, erroroverlap = 0.5, skip = 3, dim = (40, 40), 
+         rgbbin = 8, hogbin = 8, c = 1, clickradius = 10, pool = None):
 
     givens.sort(key = lambda x: x.frame)
 
     model = PathModel(images, givens, rgbbin = rgbbin, hogbin = hogbin, c = c)
     
     fullpath = []
-    bestframe = None
-    bestscore = None
+    fullmarginals = []
     for x, y in zip(givens, givens[1:]):
+        if x.frame == y.frame:
+            raise RuntimeError("Frame {0} appears twice".format(x.frame))
         logger.info("Scoring {0} to {1}".format(x.frame, y.frame))
-        if x.frame + 1 == y.frame:
-            fullpath.append(x)
-        else:
-            frame, score, path = picksegment(x, y, model, images, pairwisecost,
-                                    upperthreshold, sigma, erroroverlap, skip,
-                                    pool)
-            fullpath.extend(path[:-1])
-
-            if bestframe is None or score > bestscore:
-                bestscore = score
-                bestframe = frame
-
-    if last is not None and last > givens[-1].frame:
-        logger.info("Scoring {0} to last at {1}".format(givens[-1].frame, last))
-        frame, score, path = picksegment(givens[-1], last, model, images,
-                                         pairwisecost, upperthreshold, sigma,
-                                         erroroverlap, skip, pool)
+        marginals, path = picksegment(x, y, model, images, pairwisecost,
+                                        upperthreshold, lowerthreshold,
+                                        sigma, erroroverlap,
+                                        skip, clickradius, pool)
         fullpath.extend(path[:-1])
+        fullmarginals.extend(marginals[:-1])
 
-        if bestframe is None or score > bestscore:
-            bestscore = score
-            bestframe = frame
+    if last is not None and last >= givens[-1].frame:
+        logger.info("Scoring {0} to last at {1}".format(givens[-1].frame, last))
+        marginals, path = picksegment(givens[-1], last, model, images,
+                                      pairwisecost, upperthreshold,
+                                      lowerthreshold, sigma,
+                                      erroroverlap, skip, clickradius, pool)
+        fullpath.extend(path[:-1])
+        fullmarginals.extend(marginals)
 
-    return bestframe, bestscore, fullpath
+    if debug:
+        pylab.plot([x[1] for x in fullmarginals],
+                   [x[0] for x in fullmarginals])
+        pylab.grid()
+        pylab.savefig("tmp/scoreplot.png")
+
+    best = max(fullmarginals)
+    marginals = dict((x[1], x[0]) for x in fullmarginals)
+
+    return best[1], best[0], fullpath, marginals
 
 def picksegment(start, stop, model, images,
                pairwisecost = 0.001, upperthreshold = 10,
-               sigma = .1, erroroverlap = 0.5, skip = 3, pool = None):
+               lowerthreshold = -100, sigma = .1, erroroverlap = 0.5, skip = 3,
+               clickradius = 10, pool = None):
 
     if pool:
         logger.info("Found a process pool, so attempting to parallelize")
@@ -96,11 +100,12 @@ def picksegment(start, stop, model, images,
         constraints = [start, stop]
 
     if start.frame == stopframe:
-        return start.frame, 0, [start]
-    elif start.frame + 1 == stopframe and constrained:
-        return start.frame, 0, [start, stop]
+        return [(0, start.frame)], [start] 
     elif start.frame + 1 == stopframe:
-        return stopframe, 0, [start, stop]
+        if not constrained:
+            stop = Box(*start)
+            stop.frame = stopframe
+        return [(0, start.frame), (0, stopframe)], [start, stop] 
 
     frames = range(start.frame, stopframe + 1)
 
@@ -113,7 +118,7 @@ def picksegment(start, stop, model, images,
     # forward and backwards passes
     # if there is a pool, this will use up to 2 cores
     forwardsargs  = [frames, imagesize, model, costs, pairwisecost,
-                     upperthreshold, skip, constraints]
+                     upperthreshold, lowerthreshold, skip, constraints]
     backwardsargs = list(forwardsargs)
     backwardsargs[0] = list(reversed(frames))
     if False and pool:
@@ -184,19 +189,12 @@ def picksegment(start, stop, model, images,
     logger.info("Computing marginals")
     orders = [(forwards[x], backwards[x],
                forwarderror[x], backwarderror[x],
-               costs[x], sigma, model.dim, start, skip, x)
+               costs[x], sigma, model.dim, start, skip, clickradius, x)
                for x in frames[1:-1]]
     marginals = mapper(scoremarginals, orders)
+    marginals = [(0, start.frame)] + marginals + [(0, stopframe)]
 
-    if debug:
-        pylab.close()
-        pylab.plot([x[1] for x in marginals], [x[0] for x in marginals])
-        pylab.grid()
-        pylab.savefig("tmp/scoreplot.png")
-
-    # find minimum cost
-    best = max(marginals)
-    return best[1], best[0], path
+    return marginals, path
 
 cdef double calcerroroverlap(int i, int j, annotations.Box box, double thres,
                              int skip):
@@ -265,9 +263,9 @@ def calcerror(pathdict, pointers, double erroroverlap, int skip, frames):
 
 def scoremarginals(workorder):
     cdef double sigma
-    cdef int frame
+    cdef int frame, radius
     cdef annotations.Box start
-    (forw, backw, forwerr, backwerr, costs, sigma, dim, start, skip, frame) = workorder
+    (forw, backw, forwerr, backwerr, costs, sigma, dim, start, skip, radius, frame) = workorder
 
     cdef double score = 0, normalizer = 0, matchscore, error, localscore
 
@@ -297,8 +295,6 @@ def scoremarginals(workorder):
     errorsvert = numpy.zeros((w, h))
 
     cdef double maxmatchscore = Infinity
-
-    cdef int radius = 10
 
     # for numerical reasons, we want to subtract the most best score
     for i in range(w):

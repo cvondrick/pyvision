@@ -49,7 +49,7 @@ ext_modules = [
 
 for e in ext_modules:
     e.pyrex_directives = {
-        "boundscheck": True,
+        "boundscheck": False,
         "cdivision": True,
         "infer_types": True,
         "embedsignature": True}
