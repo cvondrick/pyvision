@@ -80,15 +80,15 @@ class FixedRateEngine(Engine):
                 pathclicks *= float(gtruth[-1].frame - gtruth[0].frame)
                 pathclicks /= numframes
                 pathclicks = int(floor(pathclicks))
-                schedule[id] = min(pathclicks, 1)
+                schedule[id] = max(pathclicks, 1)
                 usedclicks += schedule[id]
             for id, _ in zip(itertools.cycle(gtruths.keys()),
                              range(clicks - usedclicks)):
                 schedule[id] += 1
 
             for id, clicksinschedule in schedule.items():
-                logger.info("ID {0} has {1} clicks".format(id,
-                    clicksinschedule))
+                logger.info("ID {0} has {1} clicks for {2} frames".format(id,
+                    clicksinschedule, len(gtruths[id])))
 
             for id, gtruth in gtruths.items():
                 skip = int(ceil(float(gtruth[-1].frame - gtruth[0].frame) / schedule[id]))
@@ -279,16 +279,16 @@ def load(data, frames, onlylabels = None, breakup = True,
                     currentpath = []
                     for box in path:
                         if box.lost:
-                            if currentpath:
+                            if len(currentpath) > 1:
                                 paths.append((label, currentpath))
                                 currentpath = []
                                 numpaths += 1
                         else:
                             currentpath.append(box)
-                    if currentpath:
+                    if len(currentpath) > 1:
                         paths.append((label, currentpath))
                         numpaths += 1
-                else:
+                elif len(currentpath) > 1:
                     paths.append((label, path))
                     numpaths += 1
         result.append((video, paths))
