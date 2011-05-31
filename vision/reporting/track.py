@@ -80,7 +80,7 @@ class FixedRateEngine(Engine):
                 pathclicks *= float(gtruth[-1].frame - gtruth[0].frame)
                 pathclicks /= numframes
                 pathclicks = int(floor(pathclicks))
-                schedule[id] = pathclicks
+                schedule[id] = min(pathclicks, 1)
                 usedclicks += schedule[id]
             for id, _ in zip(itertools.cycle(gtruths.keys()),
                              range(clicks - usedclicks)):
@@ -93,9 +93,12 @@ class FixedRateEngine(Engine):
             for id, gtruth in gtruths.items():
                 skip = int(ceil(float(gtruth[-1].frame - gtruth[0].frame) / schedule[id]))
                 given = gtruth[::skip]
+                given = given[:schedule[id]]
 
                 if id not in result:
                     result[id] = {}
+                logger.info("Processing {0} with {1} clicks".format(id, 
+                    schedule[id]))
                 result[id][cpf] = self.predict(video, given, gtruth[-1].frame,
                                                pool = pool)
         return result
@@ -369,6 +372,26 @@ def plotperformance(data, scorer):
                    linewidth = 4)
 
     pylab.ylabel("Average error per frame ({0})".format(str(scorer)))
+    pylab.xlabel("Average clicks per frame per object")
+    pylab.legend()
+    pylab.show()
+
+def plotcorrect(data, scorer, threshold = 0):
+    fig = pylab.figure()
+    for engine, predictions in data.iteritems():
+        counter = {}
+        for prediction, groundtruth, video in predictions:
+            for cpf, path in prediction.iteritems():
+                if cpf not in counter:
+                    counter[cpf] = 0
+                score = sum(scorer(x, y) for x, y in zip(path, groundtruth))
+                if score <= threshold:
+                    counter[cpf] += 1
+
+        x, y = zip(*sorted(counter.items()))
+        pylab.plot(x, y, "{0}.-".format(engine.color()), label = str(engine),
+                   linewidth = 4)
+    pylab.ylabel("Number of completely correct tracks ({0}, threshold = {1})".format(str(scorer), threshold))
     pylab.xlabel("Average clicks per frame per object")
     pylab.legend()
     pylab.show()

@@ -3,6 +3,8 @@ import multiprocessing
 import cPickle as pickle
 from pprint import pprint
 
+file = "VIRAT_S_040305_02_001463_001550"
+
 import logging
 logging.basicConfig(level = logging.INFO, format = "%(process)d: %(message)s")
 
@@ -13,13 +15,13 @@ engines = [#LinearInterpolationEngine(),
 cpfs = [.002, 0.0025, 0.003, 0.0035, 0.004]
 frames = filetovideo("/scratch/virat/frames")
 
-data = load(["VIRAT_S_040104_05_000939_001116.txt"], frames, ["Car"])
+data = load(["{0}.txt".format(file)], frames, ["Car"])
 
 data = build(data, cpfs, engines, pool = pool)
 
 #visualizepaths(data, "tmp/")
 
 print "saving to data"
-pickle.dump(data, open("data.pkl", "w"))
+pickle.dump(data, open("{0}.pkl".format(file), "w"))
 
 plotperformance(data, PercentOverlap(0.5))
