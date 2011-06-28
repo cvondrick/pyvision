@@ -322,6 +322,18 @@ def load(data, frames, onlylabels = None, breakup = True,
 
     return result
 
+def merge(datas):
+    merged = {}
+    strmapping = {}
+    for data in datas:
+        for engine, predictions in data.iteritems():
+            if str(engine) not in strmapping:
+                strmapping[str(engine)] = engine
+                merged[engine] = []
+            print strmapping
+            merged[strmapping[str(engine)]].extend(predictions)
+    return merged
+
 def build(data, cpfs, engines, pool = None):
     """
     Takes the data and runs the engines.

@@ -1,17 +1,15 @@
 import pickle
 from pylab import *
 
-loaded = pickle.load(open("yi.pkl"))
+loaded = pickle.load(open("occlusion.pkl"))
 
 labeledframes = [0]
 
 ranges = {
-    "Walking, Yes Jacket": ([(0, 300), (1245, 1349)], "black"),
-    "Taking Off Jacket": ([(300, 404)], "red"),
-    "Walking, No Jacket": ([(404, 584), (930, 985)], "blue"),
-    "Crouching, No Jacket": ([(584, 687), (771, 985)], "green"),
-    "Jumping, No Jacket": ([(687, 771)], "orange"),
-    "Putting On Jacket": ([(985, 1245)], "purple")
+    "Visible": ([(270, 330), (469, 500)], "black"),
+    "Partial Occlusion": ([(330, 375), (455, 469)], "green"),
+    "Severe Occlusion": ([(390, 420)], "blue"),
+    "Total Occlusion": ([(375, 390), (420, 455)], "red"),
 }
 
 for label, data in ranges.items():
@@ -29,7 +27,7 @@ plot(diamondy, diamondx, "k*", label = "Requested Frame", markersize = 10)
 
 xlabel("Frame")
 ylabel("Expected Label Change")
-#legend(numpoints=1)
-ylim((0, 450))
+#legend(loc = "upper left", numpoints=1)
+ylim(0, 40)
 
 show()

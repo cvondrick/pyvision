@@ -71,6 +71,8 @@ class PathModel(object):
             im = im.resize((int(im.size[0]*wr), int(im.size[1]*hr)), 2)
             imw, imh = im.size
             mapped = given.transform(wr, hr)
+            mapped.xbr = mapped.xtl + dim[0]
+            mapped.ybr = mapped.ytl + dim[1]
 
             # positives
             xtl, ytl, xbr, ybr = mapped[0:4]
