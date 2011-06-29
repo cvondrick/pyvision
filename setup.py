@@ -1,7 +1,7 @@
 # immediately below is stupid hackery for setuptools to work with Cython
 import distutils.extension
 from distutils.extension import Extension as _Extension
-from setuptools import setup
+from setuptools import setup 
 Extension = distutils.extension.Extension = _Extension
 from Cython.Distutils import build_ext 
 # end stupid hackery
@@ -11,6 +11,7 @@ from Cython.Compiler.Main import default_options as pyrex_default_options
 pyrex_default_options['annotate'] = True
 
 import os
+import numpy
 
 print "building ffmpeg/_extract.o"
 os.system("g++ -Wno-deprecated-declarations -D__STDC_CONSTANT_MACROS -c -O3 "
@@ -29,7 +30,7 @@ ext_modules = [
     Extension("vision.convolution", ["vision/convolution.pyx"]),
     Extension("vision.track.standard", ["vision/track/standard.pyx"]),
     Extension("vision.alearn.linear", ["vision/alearn/linear.pyx"]),
-#    Extension("vision.alearn.marginals", ["vision/alearn/marginals.pyx"]),
+    Extension("vision.alearn.marginals", ["vision/alearn/marginals.pyx"]),
     Extension("vision.track.dp", ["vision/track/dp.pyx",
                                   "vision/track/dp.pxd"]),
     Extension("vision.track.pairwise", ["vision/track/pairwise.pyx"]),
@@ -55,6 +56,7 @@ for e in ext_modules:
         "embedsignature": True}
 #    e.include_dirs.append(".")
     e.extra_compile_args = ["-w"]
+    e.include_dirs.append(numpy.get_include())
 
 setup(
     name = "pyvision",
