@@ -4,3 +4,4 @@ cdef class Box(object):
     cdef public int occluded
     cdef public int frame
     cdef public int generated
+    cdef public list attributes

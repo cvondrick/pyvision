@@ -16,7 +16,7 @@ cdef class Box(object):
     @cython.profile(False)
     def __init__(self, int xtl, int ytl, int xbr, int ybr,
                  int frame = 0, int lost = 0, int occluded = 0,
-                 int generated = 0):
+                 int generated = 0, attributes = None):
         """
         Initializes the bounding box.
         """
@@ -37,6 +37,10 @@ cdef class Box(object):
         self.lost = lost
         self.occluded = occluded
         self.generated = generated
+
+        if attributes is None:
+            attributes = []
+        self.attributes = attributes
 
     @property
     def width(self):
@@ -102,7 +106,8 @@ cdef class Box(object):
         return Box(self.xtl, self.ytl,
                    self.xtl + <int> (self.width * xratio),
                    self.ytl + <int> (self.height * yratio),
-                   self.frame, self.lost, self.occluded, self.generated)
+                   self.frame, self.lost, self.occluded, self.generated,
+                   self.attributes)
 
     def transform(self, xratio, yratio = None):
         """
@@ -114,7 +119,8 @@ cdef class Box(object):
 
         return Box(<int> (self.xtl * xratio), <int> (self.ytl * yratio),
                    <int> (self.xbr * xratio), <int> (self.ybr * yratio),
-                   self.frame, self.lost, self.occluded, self.generated)
+                   self.frame, self.lost, self.occluded, self.generated,
+                   self.attributes)
 
     def average(self, other):
         return Box((self.xtl + other.xtl) / 2,
@@ -124,15 +130,17 @@ cdef class Box(object):
                    (self.frame + other.frame) / 2,
                    self.lost or other.lost,
                    self.occluded or other.occluded,
-                   self.generated)
+                   self.generated,
+                   self.attributes)
 
     def __str__(self):
         """
         Returns a string representation.
         """
-        return "Box({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7})".format(
+        return "Box({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8})".format(
             self.xtl, self.ytl, self.xbr, self.ybr,
-            self.frame, self.lost, self.occluded, self.generated)
+            self.frame, self.lost, self.occluded, self.generated,
+            repr(self.attributes))
 
     def __repr__(self):
         """
@@ -167,14 +175,16 @@ cdef class Box(object):
         Provides support to serialize the box.
         """
         return (Box, (self.xtl, self.ytl, self.xbr, self.ybr,
-            self.frame, self.lost, self.occluded, self.generated))
+            self.frame, self.lost, self.occluded, self.generated,
+            self.attributes))
 
     def __getitem__(self, a):
         """
         Allows accessing bounding box as if its a tuple
         """
         tuple = (self.xtl, self.ytl, self.xbr, self.ybr,
-                 self.frame, self.lost, self.occluded, self.generated)
+                 self.frame, self.lost, self.occluded, self.generated,
+                 self.attributes)
         return tuple[a]
 
 def readpaths(pointer):
