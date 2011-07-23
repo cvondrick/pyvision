@@ -107,7 +107,7 @@ cdef class Box(object):
                    self.xtl + <int> (self.width * xratio),
                    self.ytl + <int> (self.height * yratio),
                    self.frame, self.lost, self.occluded, self.generated,
-                   self.attributes)
+                   list(self.attributes))
 
     def transform(self, xratio, yratio = None):
         """
@@ -120,7 +120,7 @@ cdef class Box(object):
         return Box(<int> (self.xtl * xratio), <int> (self.ytl * yratio),
                    <int> (self.xbr * xratio), <int> (self.ybr * yratio),
                    self.frame, self.lost, self.occluded, self.generated,
-                   self.attributes)
+                   list(self.attributes))
 
     def average(self, other):
         return Box((self.xtl + other.xtl) / 2,
@@ -131,7 +131,7 @@ cdef class Box(object):
                    self.lost or other.lost,
                    self.occluded or other.occluded,
                    self.generated,
-                   self.attributes)
+                   list(self.attributes))
 
     def __str__(self):
         """
@@ -176,7 +176,7 @@ cdef class Box(object):
         """
         return (Box, (self.xtl, self.ytl, self.xbr, self.ybr,
             self.frame, self.lost, self.occluded, self.generated,
-            self.attributes))
+            list(self.attributes)))
 
     def __getitem__(self, a):
         """
@@ -184,7 +184,7 @@ cdef class Box(object):
         """
         tuple = (self.xtl, self.ytl, self.xbr, self.ybr,
                  self.frame, self.lost, self.occluded, self.generated,
-                 self.attributes)
+                 list(self.attributes))
         return tuple[a]
 
 def readpaths(pointer):

@@ -67,6 +67,7 @@ class FixedRateEngine(Engine):
         """
         result = {}
         numframes = sum(x[-1].frame - x[0].frame for x in gtruths.values())
+        logger.info("Total of {0} frames".format(numframes))
         for cpf in cpfs:
             clicks = int(cpf * numframes)
             usedclicks = 0
@@ -371,9 +372,13 @@ def plotperformance(data, scorer):
                     scores[cpf] = 0
                     lengths[cpf] = 0
 
-                score = sum(scorer(x,y) for x, y in zip(path, groundtruth))
-                scores[cpf] += score
-                lengths[cpf] += len(path)
+                try:
+                    score = sum(scorer(x,y) for x, y in zip(path, groundtruth))
+                except Exception as e:
+                    logger.exception(e)
+                else:
+                    scores[cpf] += score
+                    lengths[cpf] += len(path)
 
         # normalize scores
         for cpf in scores:
