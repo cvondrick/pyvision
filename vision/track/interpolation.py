@@ -26,8 +26,9 @@ def Linear(source, target):
         xbr = source.xbr + xbrr * off
         ybr = source.ybr + ybrr * off
         generated = int(i != source.frame and i != target.frame)
+        lost = source.lost or target.lost
         results.append(Box(xtl, ytl, xbr, ybr,
-                       i, source.lost, source.occluded, generated,
+                       i, lost, source.occluded, generated,
                        list(source.attributes)))
 
     return results
