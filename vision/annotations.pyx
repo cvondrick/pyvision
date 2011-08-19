@@ -197,8 +197,8 @@ def readpaths(pointer):
     currentlabel = None
     for line in pointer:
         line = re.match("(\d+) (\d+) (\d+) (\d+) (\d+) (\d+) (\d+) (\d+) "
-                        "(\d+) \"(.+)\"", line)
-        id, xtl, ytl, xbr, ybr, frame, lost, occ, gen, label = line.groups()
+                        "(\d+) \"(.+)\"( \".+\")*?", line)
+        id, xtl, ytl, xbr, ybr, frame, lost, occ, gen, label, attributes = line.groups()
         box = Box(int(xtl), int(ytl), int(xbr), int(ybr),
                   int(frame), int(lost), int(occ), int(gen))
         if lastid != id:

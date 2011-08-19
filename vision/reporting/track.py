@@ -23,6 +23,8 @@ from vision import visualize
 from math import ceil, floor
 import itertools
 import pylab
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm, mpl
 import logging
 import os
 
@@ -357,11 +359,11 @@ def build(data, cpfs, engines, pool = None):
                                   for x in keys)
     return result
 
-def plotperformance(data, scorer):
+def scoreperformance(data, scorer):
     """
     Plots a performance curve for the data with the specified engines.
     """
-    fig = pylab.figure()
+    results = {}
     for engine, predictions in data.iteritems():
         logger.info("Plotting and scoring tracks for {0}".format(str(engine)))
         scores = {}
@@ -384,10 +386,16 @@ def plotperformance(data, scorer):
         for cpf in scores:
             scores[cpf] = scores[cpf] / float(lengths[cpf])
 
-        x, y = zip(*sorted(scores.items()))
+        results[engine] = zip(*sorted(scores.items()))
+    return results
+
+def plotperformance(data, scorer, only = []):
+    fig = pylab.figure()
+    for engine, (x, y) in scoreperformance(data, scorer).items():
+        if only and str(engine) not in only:
+            continue
         pylab.plot(x, y, "{0}.-".format(engine.color()), label = str(engine),
                    linewidth = 4)
-
     pylab.ylabel("Average error per frame ({0})".format(str(scorer)))
     pylab.xlabel("Average clicks per frame per object")
     pylab.legend()
@@ -401,9 +409,14 @@ def plotcorrect(data, scorer, threshold = 0):
             for cpf, path in prediction.iteritems():
                 if cpf not in counter:
                     counter[cpf] = 0
-                score = sum(scorer(x, y) for x, y in zip(path, groundtruth))
-                if score <= threshold:
-                    counter[cpf] += 1
+
+                try:
+                    score = sum(scorer(x, y) for x, y in zip(path, groundtruth))
+                except Exception as e:
+                    logger.exception(e)
+                else:
+                    if score <= threshold:
+                        counter[cpf] += 1
 
         x, y = zip(*sorted(counter.items()))
         pylab.plot(x, y, "{0}.-".format(engine.color()), label = str(engine),
@@ -412,6 +425,35 @@ def plotcorrect(data, scorer, threshold = 0):
     pylab.xlabel("Average clicks per frame per object")
     pylab.legend()
     pylab.show()
+
+def plotsurface(input, scorer, left, right,
+    cpucostfact = 20, humancostfact = 2500 / 5):
+
+    data = scoreperformance(input, scorer)
+
+    # find left and right
+    for potential in data.keys():
+        if str(potential) == left:
+            left = potential
+        elif str(potential) == right:
+            right = potential
+
+
+    cpucost = numpy.arange(0, 1.05, 0.05)
+    humcost = numpy.asarray(sorted(data[left][0]))
+    error = numpy.zeros((humcost.shape[0], cpucost.shape[0]))
+
+    cpucost, humcost = numpy.meshgrid(cpucost, humcost)
+    
+    fig = plt.figure()
+    ax = Axes3D(fig)
+    ax.set_xlabel("CPU Cost")
+    ax.set_ylabel("Human Cost")
+    ax.set_zlabel("Error")
+    ax.plot_surface(cpucost, humancost, error)
+    ax.legend()
+
+    plt.show()
 
 def visualizepaths(data, dir):
     for engine, predictions in data.iteritems():
