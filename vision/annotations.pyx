@@ -117,8 +117,17 @@ cdef class Box(object):
         if yratio is None:
             yratio = xratio
 
-        return Box(<int> (self.xtl * xratio), <int> (self.ytl * yratio),
-                   <int> (self.xbr * xratio), <int> (self.ybr * yratio),
+        cdef int xtl = <int>(self.xtl * xratio)
+        cdef int ytl = <int>(self.ytl * yratio)
+        cdef int xbr = <int>(self.xbr * xratio)
+        cdef int ybr = <int>(self.ybr * yratio)
+
+        if xbr <= xtl:
+            xbr += 1
+        if ybr <= ytl:
+            ybr += 1
+
+        return Box(xtl, ytl, xbr, ybr,
                    self.frame, self.lost, self.occluded, self.generated,
                    list(self.attributes))
 

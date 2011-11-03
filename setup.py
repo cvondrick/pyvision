@@ -2,7 +2,8 @@
 import distutils.extension
 from distutils.extension import Extension as _Extension
 from setuptools import setup 
-Extension = distutils.extension.Extension = _Extension
+distutils.extension.Extension = _Extension
+Extension = _Extension
 from Cython.Distutils import build_ext 
 # end stupid hackery
 
@@ -57,6 +58,8 @@ for e in ext_modules:
 #    e.include_dirs.append(".")
     e.extra_compile_args = ["-w"]
     e.include_dirs.append(numpy.get_include())
+
+print ext_modules
 
 setup(
     name = "pyvision",
