@@ -67,7 +67,7 @@ int extract_video(char *filename, struct video_stream *output)
     // determine video stream
     for (i = 0; i < format_context->nb_streams; i++)
     {
-        if (format_context->streams[i]->codec->codec_type == CODEC_TYPE_VIDEO)
+        if (format_context->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO)
         {
             video_stream = i;
             break;
@@ -147,7 +147,15 @@ int read_frame(struct video_stream *stream, unsigned char **output)
     {
         if (packet.stream_index == video_stream)
         {
-            avcodec_decode_video(codec_context, frame_reg, &frame_finished, packet.data, packet.size);
+            //avcodec_decode_video(codec_context, frame_reg, &frame_finished, packet.data, packet.size);
+
+        AVPacket avpkt; 
+	av_init_packet(&avpkt); 
+	avpkt.data = packet.data; 
+	avpkt.size = packet.size; 
+ 	avpkt.flags = AV_PKT_FLAG_KEY; 
+ 	avcodec_decode_video2(codec_context, 
+ 	frame_reg, &frame_finished, &avpkt); 
 
             if (frame_finished)
             {
