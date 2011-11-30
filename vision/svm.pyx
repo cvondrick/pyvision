@@ -92,7 +92,8 @@ def sanity(pos, neg):
     logger.debug("Sanity check passed")
 
 cpdef train(positives, negatives, float c = 1.0,
-    mach = L2R_L2LOSS_SVC_DUAL, float eps = 0.01):
+    mach = L2R_L2LOSS_SVC_DUAL, float eps = 0.01,
+    float posc = 1.0, float negc = 1.0):
     """
     Trains a linear SVM with positives and negatives.
 
@@ -135,8 +136,8 @@ cpdef train(positives, negatives, float c = 1.0,
     param.C = c
     param.nr_weight = 2
     param.weight = <double*> malloc(param.nr_weight*sizeof(double))
-    param.weight[0] = 1.
-    param.weight[1] = 1.
+    param.weight[0] = posc
+    param.weight[1] = negc
     param.weight_label = <int*> malloc(param.nr_weight*sizeof(int))
     param.weight_label[0] = +1
     param.weight_label[1] = -1
