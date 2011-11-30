@@ -46,13 +46,21 @@ cdef extern from "liblinear/linear.h":
     model *liblinear_train "train" (problem *prob, parameter *param) nogil
 
     cdef enum solver_type:
-        L2_LR,
+        L2R_LR,
         L2R_L2LOSS_SVC_DUAL,
         L2R_L2LOSS_SVC,
         L2R_L1LOSS_SVC_DUAL,
         MCSVM_CS,
         L1R_L2LOSS_SVC,
         L1R_LR
+
+MACH_L1R_L2LOSS_SVC = 5
+MACH_L1R_LR = 6
+MACH_L2R_L1LOSS_SVC_DUAL = 3
+MACH_L2R_L2LOSS_SVC = 2
+MACH_L2R_L2LOSS_SVC_DUAL = 1
+MACH_L2R_LR = 0
+MACH_MCSVM_CS = 4
 
 class Model(object):
     """
@@ -143,7 +151,7 @@ cpdef train(positives, negatives, float c = 1.0,
     cdef np.ndarray[np.double_t, ndim=1] weights = np.zeros(mod.nr_feature)
     for i from 0 <= i < mod.nr_feature:
         weights[i] = mod.w[i]
-    cdef double bias = mod.bias
+    cdef double bias = mod.w[mod.nr_feature]
 
     logger.debug("Cleanup")
     free(param.weight)
