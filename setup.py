@@ -3,6 +3,7 @@ import distutils.extension
 from distutils.extension import Extension as _Extension
 from setuptools import setup 
 distutils.extension.Extension = _Extension
+distutils.command.build_ext.Extension = _Extension
 Extension = _Extension
 from Cython.Distutils import build_ext 
 # end stupid hackery
@@ -13,6 +14,7 @@ pyrex_default_options['annotate'] = True
 
 import os
 import numpy
+
 
 print "building ffmpeg/_extract.o"
 os.system("g++ -Wno-deprecated-declarations -D__STDC_CONSTANT_MACROS -c -O3 "
@@ -59,7 +61,6 @@ for e in ext_modules:
     e.extra_compile_args = ["-w"]
     e.include_dirs.append(numpy.get_include())
 
-print ext_modules
 
 setup(
     name = "pyvision",
