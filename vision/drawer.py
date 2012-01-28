@@ -49,7 +49,15 @@ class Drawer(object):
 
     def clickcanvas(self, event):
         if self.lastclick:
-            self.coordinates = self.calccoords(event, self.lastclick)
+            xmin, ymin, xmax, ymax = self.calccoords(event, self.lastclick)
+
+            xmin = max(xmin, 0)
+            ymin = max(ymin, 0)
+            xmax = min(xmax, self.image.size[0])
+            ymax = min(ymax, self.image.size[1])
+
+            self.coordinates = (xmin, ymin, xmax, ymax)
+
             self.root.destroy()
         else:
             self.lastclick = event
