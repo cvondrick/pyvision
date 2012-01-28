@@ -50,14 +50,17 @@ class Drawer(object):
         self.w.create_image((width / 2, height / 2), image = self.tkimage)
         self.w.image = self.tkimage
         self.w.bind("<Button-1>", self.clickcanvas)
-        self.w.bind("<ButtonRelease-1>", self.clickcanvas)
+        self.w.bind("<Button-3>", self.cancelcanvas)
+#        self.w.bind("<ButtonRelease-1>", self.clickcanvas)
         self.w.bind("<Motion>", self.movecanvas)
         self.w.pack()
 
     def movecanvas(self, event):
+        if self.rectangle:
+            self.w.delete(self.rectangle)
+            self.rectangle = None
         if self.lastclick:
             xmin, ymin, xmax, ymax = self.calccoords(event, self.lastclick)
-            self.w.delete(self.rectangle)
             self.rectangle = self.w.create_rectangle((xmin, ymin, xmax, ymax), width=5, outline = "red")
 
     def clickcanvas(self, event):
@@ -74,6 +77,9 @@ class Drawer(object):
             self.root.destroy()
         else:
             self.lastclick = event
+
+    def cancelcanvas(self, event):
+        self.lastclick = None
 
     def calccoords(self, a, b):
         xmin = min(a.x, b.x)
