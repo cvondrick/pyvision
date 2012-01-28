@@ -39,6 +39,8 @@ class Drawer(object):
         self.coordinates = None
 
         self.root = Tk()
+        self.root.wm_title("Draw a bounding box")
+
         self.image = image
         self.tkimage = ImageTk.PhotoImage(image)
 
