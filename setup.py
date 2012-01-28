@@ -1,5 +1,6 @@
 # immediately below is stupid hackery for setuptools to work with Cython
 import distutils.extension
+import distutils.command.build_ext
 from distutils.extension import Extension as _Extension
 from setuptools import setup 
 distutils.extension.Extension = _Extension
