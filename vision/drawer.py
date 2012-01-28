@@ -1,8 +1,22 @@
+"""
+A toolkit to mimic imrect in MATLAB. Upon calling getcoords(image), a window
+will appear prompting the user to draw a bounding box. Once they have drawn
+the box, it returns with the coordinates.
+
+Usage is simple:
+
+>> import Image, vision.drawer
+>> image = Image.open("/path/to/image.jpg")
+>> xmin, ymin, xmax, ymax = getcoords(image)
+
+The only dependencies are Tkinter and PIL (it does not depend on pyvision).
+"""
+
 from Tkinter import *
 import Image
 import ImageTk
 
-def draw(image):
+def getcoords(image):
     d = Drawer(image)
     d.run()
     return d.coordinates
@@ -23,6 +37,7 @@ class Drawer(object):
         self.w.create_image((width / 2, height / 2), image = self.tkimage)
         self.w.image = self.tkimage
         self.w.bind("<Button-1>", self.clickcanvas)
+        self.w.bind("<ButtonRelease-1>", self.clickcanvas)
         self.w.bind("<Motion>", self.movecanvas)
         self.w.pack()
 
@@ -52,4 +67,4 @@ class Drawer(object):
 
 if __name__ == "__main__":
     im = Image.open("/csail/vision-videolabelme/databases/video_adapt/kitchen_carl_c/frames/0/00001.jpg")
-    print draw(im)
+    print getcoords(im)
