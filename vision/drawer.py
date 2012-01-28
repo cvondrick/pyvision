@@ -30,9 +30,7 @@ else:
             return vision.Box(*getcoords(image))
 
 def getcoords(image):
-    d = Drawer(image)
-    d.run()
-    return d.coordinates
+    return Drawer(image).coordinates
 
 class Drawer(object):
     def __init__(self, image):
@@ -51,9 +49,10 @@ class Drawer(object):
         self.w.image = self.tkimage
         self.w.bind("<Button-1>", self.clickcanvas)
         self.w.bind("<Button-3>", self.cancelcanvas)
-#        self.w.bind("<ButtonRelease-1>", self.clickcanvas)
         self.w.bind("<Motion>", self.movecanvas)
         self.w.pack()
+
+        self.root.mainloop()
 
     def movecanvas(self, event):
         if self.rectangle:
@@ -88,9 +87,6 @@ class Drawer(object):
         ymax = max(a.y, b.y)
 
         return xmin, ymin, xmax, ymax
-
-    def run(self):
-        self.root.mainloop()
 
 if __name__ == "__main__":
     im = Image.open("/csail/vision-videolabelme/databases/video_adapt/kitchen_carl_c/frames/0/00001.jpg")
