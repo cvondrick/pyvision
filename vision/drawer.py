@@ -16,6 +16,19 @@ from Tkinter import *
 import Image
 import ImageTk
 
+try:
+    import vision
+except ImportError:
+    pass
+else:
+    def getbox(image, frame = None):
+        if frame:
+            box = vision.Box(*getcoords(image[frame]))
+            box.frame = frame
+            return box
+        else:
+            return vision.Box(*getcoords(image))
+
 def getcoords(image):
     d = Drawer(image)
     d.run()
@@ -75,4 +88,4 @@ class Drawer(object):
 
 if __name__ == "__main__":
     im = Image.open("/csail/vision-videolabelme/databases/video_adapt/kitchen_carl_c/frames/0/00001.jpg")
-    print getcoords(im)
+    print getbox(im)

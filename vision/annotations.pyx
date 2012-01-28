@@ -237,3 +237,7 @@ class frameiterator(object):
 
     def __getitem__(self, frame):
         return Image.open(self.path(frame))
+
+class flatframeiterator(frameiterator):
+    def path(self, frame):
+        return "{0}/{1:05d}.jpg".format(self.base, frame)
