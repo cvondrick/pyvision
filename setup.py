@@ -15,11 +15,17 @@ pyrex_default_options['annotate'] = True
 
 import os
 import numpy
+import sys
 
+build_ffmpeg = True
+if "--disable-ffmpeg" in sys.argv:
+    sys.argv.remove("--disable-ffmpeg")
+    build_ffmpeg = False
 
-print "building ffmpeg/_extract.o"
-os.system("g++ -Wno-deprecated-declarations -D__STDC_CONSTANT_MACROS -c -O3 "
-          "-fPIC vision/ffmpeg/_extract.c -o vision/ffmpeg/_extract.o")
+if build_ffmpeg:
+    print "building ffmpeg/_extract.o"
+    os.system("g++ -Wno-deprecated-declarations -D__STDC_CONSTANT_MACROS -c -O3 "
+            "-fPIC vision/ffmpeg/_extract.c -o vision/ffmpeg/_extract.o")
 
 print "building liblinear"
 os.system("make -C vision/liblinear")
@@ -42,15 +48,18 @@ ext_modules = [
         extra_objects = [root + "liblinear/linear.o",
                          root + "liblinear/tron.o",
                          root + "liblinear/blas/blas.a"],
-        language = "c++"),
-    Extension("vision.ffmpeg.extract",
-        sources = ["vision/ffmpeg/extract.pyx"],
-        include_dirs = [root + "ffmpeg/"],
-        library_dirs = [root + "ffmpeg/"],
-        libraries = ["avformat", "avcodec", "avutil", "swscale"],
-        extra_objects = [root + "ffmpeg/_extract.o"],
-        language = "c++")
-    ]
+        language = "c++")]
+
+if build_ffmpeg:
+    ext_modules.append(
+        Extension("vision.ffmpeg.extract",
+            sources = ["vision/ffmpeg/extract.pyx"],
+            include_dirs = [root + "ffmpeg/"],
+            library_dirs = [root + "ffmpeg/"],
+            libraries = ["avformat", "avcodec", "avutil", "swscale"],
+            extra_objects = [root + "ffmpeg/_extract.o"],
+            language = "c++")
+   )
 
 for e in ext_modules:
     e.pyrex_directives = {
