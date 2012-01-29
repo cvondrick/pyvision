@@ -1,5 +1,3 @@
-#!/bin/python
-
 """
 A toolkit to mimic imrect in MATLAB. Upon calling getcoords(image), a window
 will appear prompting the user to draw a bounding box. Once they have drawn
@@ -95,6 +93,6 @@ class Drawer(object):
 if __name__ == "__main__":
     import sys
     if len(sys.argv) != 2:
-        print "usage: ./drawer.py /path/to/image.jpg"
+        print "usage: python drawer.py /path/to/image.jpg"
     else:
         print getcoords(Image.open(sys.argv[1]))
