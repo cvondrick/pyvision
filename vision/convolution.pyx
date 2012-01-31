@@ -70,14 +70,11 @@ cpdef rgbhist(image, filtersize, rgbfilter, int rgbbin = 8):
     Efficiently convolves a filter around an image for RGB filters.
 
     Only computes features in the valid region of the image and returns a score
-    matrix. The filtersize should be the size of the templated to score with,
-    and must match with hogfilter.
+    matrix. The filtersize should be the size of the templated to score with.
 
     - image should be an Python Image Library image.
     - filtersize should be a 2-tuple of (width,height) sizes for the template
       filter.
-    - hogfilter should be a (width/hogbin-2, height/hogbin-2, 13) numpy array
-      of the learned HOG weights.
     - rgbfilter should be a rgbin^3 length matrix of the learned RGB histogram
       weights.
     """
@@ -110,7 +107,7 @@ cpdef rgbhist(image, filtersize, rgbfilter, int rgbbin = 8):
             sumrgb[i, j] = localrgbscore
 
     # convolve
-    cdef double rgbscore, hogfeatvalue, hogfiltervalue
+    cdef double rgbscore
     cdef np.ndarray[ndim=2, dtype=np.double_t] output
     output = np.zeros((width - filterwidth, height - filterheight))
 
@@ -130,8 +127,7 @@ cpdef rgbmean(image, filtersize, rgbfilter):
     Efficiently convolves a filter around an image for RGB filters.
 
     Only computes features in the valid region of the image and returns a score
-    matrix. The filtersize should be the size of the templated to score with,
-    and must match with hogfilter.
+    matrix. The filtersize should be the size of the templated to score.
 
     - image should be an Python Image Library image.
     - filtersize should be a 2-tuple of (width,height) sizes for the template
@@ -174,7 +170,7 @@ cpdef rgbmean(image, filtersize, rgbfilter):
             sumrgb[i, j] = localrgbscore
 
     # convolve
-    cdef double hogscore, rgbscore, hogfeatvalue, hogfiltervalue
+    cdef double rgbscore
     cdef np.ndarray[ndim=2, dtype=np.double_t] output
     output = np.zeros((width - filterwidth,
                        height - filterheight))
