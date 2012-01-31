@@ -44,7 +44,7 @@ cpdef hog(image, filtersize, hogfilter, int hogbin = 8):
 
     # convolve
     cdef int hfwidth = hogfilter.shape[0], hfheight = hogfilter.shape[1]
-    cdef double hogscore, rgbscore, hogfeatvalue, hogfiltervalue
+    cdef double hogscore, hogfeatvalue, hogfiltervalue
     cdef np.ndarray[ndim=2, dtype=np.double_t] output
     output = np.zeros((width - filterwidth,
                        height - filterheight))
