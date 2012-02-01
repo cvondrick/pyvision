@@ -75,20 +75,24 @@ def read(data):
     return cameras, points
 
 class Camera(object):
-    def __init__(self):
-        self.focal = None
-        self.radialdist = None
-        self.rotation = None
-        self.translation = None
+    def __init__(self, focal = None, radialdist = None,
+                 rotation = None, translation = None):
+        self.focal = focal
+        self.radialdist = radialdist
+        self.rotation = rotation
+        self.translation = translation
 
     def __repr__(self):
-        return "Camera%s" % str((self.focal, self.radialdist, self.rotation, self.translation))
+        return "Camera%s" % str((self.focal, self.radialdist,
+                                 self.rotation, self.translation))
 
 class Point(object):
-    def __init__(self):
-        self.position = None
-        self.color = None
-        self.views = []
+    def __init__(self, position = None, color = None, views = None):
+        if views is None:
+            views = []
+        self.position = position
+        self.color = color
+        self.views = views
 
     def __repr__(self):
         return "Point%s" % str((self.position, self.color, self.views))
