@@ -1,4 +1,4 @@
-def read(data):
+def read(inputdata):
     """
     Reads in a bundler output file. Returns both the cameras and the points.
     """
@@ -18,7 +18,7 @@ def read(data):
     numcameras = None
     numpoints = None
 
-    for line in data:
+    for line in inputdata:
         if line[0] == "#":
             continue
         if not reading_cameras and not reading_points:
@@ -29,7 +29,7 @@ def read(data):
             data = [float(x) for x in line.split()]
             if camera_state == 0:
                 focal, radial0, radial1 = data
-                camera_current = Camera()
+                camera_current = Camera(len(cameras))
                 camera_current.focal = focal
                 camera_current.radialdist = (radial0, radial1)
                 camera_state = 1
@@ -75,15 +75,16 @@ def read(data):
     return cameras, points
 
 class Camera(object):
-    def __init__(self, focal = None, radialdist = None,
+    def __init__(self, id, focal = None, radialdist = None,
                  rotation = None, translation = None):
+        self.id = id
         self.focal = focal
         self.radialdist = radialdist
         self.rotation = rotation
         self.translation = translation
 
     def __repr__(self):
-        return "Camera%s" % str((self.focal, self.radialdist,
+        return "Camera%s" % str((self.id, self.focal, self.radialdist,
                                  self.rotation, self.translation))
 
 class Point(object):
@@ -96,8 +97,3 @@ class Point(object):
 
     def __repr__(self):
         return "Point%s" % str((self.position, self.color, self.views))
-
-if __name__ == "__main__":
-    cameras, points = read(open("bundle.out"))
-    print cameras[0]
-    print points[0]
