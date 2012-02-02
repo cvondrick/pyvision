@@ -63,7 +63,7 @@ def read(inputdata):
                 xs = [float(x) for x in data[3::4]]
                 ys = [float(x) for x in data[4::4]]
                 for camera, key, x, y in zip(viewcameras, keys, xs, ys):
-                    point_current.views.append((cameras[camera], key, x, y))
+                    point_current.views.append(PointView(cameras[camera], key, x, y))
                 point_state = 0
                 points.append(point_current)
 
@@ -97,3 +97,13 @@ class Point(object):
 
     def __repr__(self):
         return "Point%s" % str((self.position, self.color, self.views))
+
+class PointView(object):
+    def __init__(self, camera = None, key = None, x = None, y = None):
+        self.camera = camera
+        self.key = key
+        self.x = x
+        self.y = y
+
+    def __repr__(self):
+        return "PointView%s" % str((self.camera, self.key, self.x, self.y))
