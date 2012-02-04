@@ -76,3 +76,9 @@ class PascalDataset(object):
     def image(self, image):
         path = os.path.join(self.root, "JPEGImages", image)
         return Image.open(path)
+
+    def __getitem__(self, image):
+        return self.image(image)
+
+    def __iter__(self):
+        return self.annotations()
