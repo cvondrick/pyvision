@@ -56,10 +56,35 @@ class PascalDataset(object):
         return dataset
 
     def imageset(self, imageset = "trainval"):
+        """
+        imageset should be: trainval, train, or val
+        """
         imageset = "{0}.txt".format(imageset)
         path = os.path.join(self.root, "ImageSets", "Main", imageset)
         for line in open(path):
             yield line.strip()
+
+    def find(self, likecats = [], dislikecats = [], imageset = "trainval"):
+        likes = set()
+        dislikes = set()
+
+        for like in likecats:
+            path = "{0}_{1}.txt".format(like, imageset)
+            path = os.path.join(self.root, "ImageSets", "Main", path)
+            for line in open(path):
+                image, indicator = line.split()
+                if int(indicator) > 0:
+                    likes.add(image)
+
+        for dislike in dislikecats:
+            path = "{0}_{1}.txt".format(dislike, imageset)
+            path = os.path.join(self.root, "ImageSets", "Main", path)
+            for line in open(path):
+                image, indicator = line.split()
+                if int(indicator) < 0:
+                    dislikes.add(image)
+
+        return likes.union(dislikes)
 
     def image(self, image):
         path = os.path.join(self.root, "JPEGImages", image)
