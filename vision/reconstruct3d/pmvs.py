@@ -1,6 +1,16 @@
 import os
 import numpy
 
+def read(root):
+    """
+    Returns a reconstruction object that has all the important information in it
+    that is necessary to reconstruct the scene.
+    """
+    patches = read_patches(open("{0}/models/option-0000.patch".format(root)))
+    projections = read_projections("{0}/txt/".format(root))
+
+    return patches, projections
+
 def read_patches(data):
     """
     Reads a PMVS patch file, typically called something like option-0000.patch. 
@@ -38,32 +48,6 @@ def read_patches(data):
 
     return patches
 
-class Patch(object):
-    def __init__(self, realcoords, normal, score, visibles, disagrees):
-        self.realcoords = numpy.array(realcoords)
-        self.normal = numpy.array(normal)
-        self.score = score
-        self.visibles = visibles
-        self.disagrees = disagrees
-
-    def __repr__(self):
-        return "Patch%s" % str((self.realcoords, self.normal, self.score,
-                                self.visibles, self.disagrees))
-
-    def project(self, projection):
-        a = numpy.dot(projection, self.realcoords)
-        return a / a[2]
-
-    def projectall(self, projections, disagrees = True):
-        if disagrees:
-            use = self.visibles + self.disagrees
-        else:
-            use = self.visibles
-        mapping = {}
-        for point in self.visibles + self.disagrees:
-            mapping[point] = self.project(projections[point])
-        return mapping
-
 def read_projections(root):
     """
     Reads in all the projection information stored inside txt files.
@@ -81,8 +65,35 @@ def read_projections(root):
             projections[float(name)] = m
     return projections
 
-if __name__ == "__main__":
-    p = read_patches(open("option-0000.patch"))
-    proj = read_projections("/csail/vision-videolabelme/databases/video_adapt/home_ac_a/frames/0/bundler/pmvs/txt")
+class Patch(object):
+    def __init__(self, realcoords, normal, score, visibles, disagrees):
+        self.realcoords = numpy.array(realcoords)
+        self.normal = numpy.array(normal)
+        self.score = score
+        self.visibles = visibles
+        self.disagrees = disagrees
 
-    print p[0].project(proj[0])
+    def __repr__(self):
+        return "Patch%s" % str((self.realcoords, self.normal, self.score,
+                                self.visibles, self.disagrees))
+
+    def project(self, projection):
+        a = numpy.dot(projection, self.realcoords)
+        return (a / a[2])[0:2]
+
+    def projectall(self, projections, disagrees = True):
+        if disagrees:
+            use = self.visibles + self.disagrees
+        else:
+            use = self.visibles
+        mapping = {}
+        for point in self.visibles + self.disagrees:
+            mapping[point] = self.project(projections[point])
+        return mapping
+
+
+if __name__ == "__main__":
+    patches, projections = read("/csail/vision-videolabelme/databases/video_adapt/home_ac_a/frames/0/bundler/pmvs")
+
+    print patches[0].realcoords
+    print patches[0].project(projections[0])
