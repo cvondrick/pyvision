@@ -1,4 +1,11 @@
+import os
+import numpy
+
 def read_patches(data):
+    """
+    Reads a PMVS patch file, typically called something like option-0000.patch. 
+    Returns an array of patches.
+    """
     if data.readline().strip() != "PATCHES":
         raise RuntimeError("expected PATCHES header")
 
@@ -33,8 +40,8 @@ def read_patches(data):
 
 class Patch(object):
     def __init__(self, realcoords, normal, score, visibles, disagrees):
-        self.realcoords = realcoords
-        self.normal = normal
+        self.realcoords = numpy.array(realcoords)
+        self.normal = numpy.array(normal)
         self.score = score
         self.visibles = visibles
         self.disagrees = disagrees
@@ -43,5 +50,29 @@ class Patch(object):
         return "Patch%s" % str((self.realcoords, self.normal, self.score,
                                 self.visibles, self.disagrees))
 
+    def map(self, projection):
+        a = numpy.dot(projection, self.realcoords)
+        return a / a[2]
+
+def read_projections(root):
+    """
+    Reads in all the projection information stored inside txt files.
+    """
+    projections = {}
+    for file in os.listdir(root):
+        if not file.endswith(".txt"):
+            continue
+        with open(os.path.join(root, file)) as data:
+            if data.readline().strip() != "CONTOUR":
+                raise RuntimeError("expceted CONTOUR header")
+            read = lambda x: [float(y) for y in x.readline().strip().split()]
+            m = numpy.array([read(data), read(data), read(data)])
+            name, _ = file.split(".")
+            projections[float(name)] = m
+    return projections
+
 if __name__ == "__main__":
     p = read_patches(open("option-0000.patch"))
+    proj = read_projections("/csail/vision-videolabelme/databases/video_adapt/home_ac_a/frames/0/bundler/pmvs/txt")
+
+    print p[0].map(proj[0])
