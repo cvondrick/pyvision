@@ -4,4 +4,6 @@ cdef class Box(object):
     cdef public int occluded
     cdef public int frame
     cdef public int generated
+    cdef public object image
+    cdef public object label
     cdef public object attributes
