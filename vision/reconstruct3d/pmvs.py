@@ -1,5 +1,6 @@
 import os
 import numpy
+import scipy.linalg
 
 def read(root):
     """
@@ -48,6 +49,32 @@ def read_patches(data):
 
     return patches
 
+class Patch(object):
+    def __init__(self, realcoords, normal, score, visibles, disagrees):
+        self.realcoords = numpy.array(realcoords)
+        self.normal = numpy.array(normal)
+        self.score = score
+        self.visibles = visibles
+        self.disagrees = disagrees
+
+    def __repr__(self):
+        return "Patch%s" % str((self.realcoords, self.normal, self.score,
+                                self.visibles, self.disagrees))
+
+    def project(self, projection):
+        a = numpy.dot(projection.matrix, self.realcoords)
+        return (a / a[2])[0:2]
+
+    def projectall(self, projections, disagrees = True):
+        if disagrees:
+            use = self.visibles + self.disagrees
+        else:
+            use = self.visibles
+        mapping = {}
+        for point in self.visibles + self.disagrees:
+            mapping[point] = self.project(projections[point])
+        return mapping
+
 def read_projections(root):
     """
     Reads in all the projection information stored inside txt files.
@@ -62,38 +89,26 @@ def read_projections(root):
             read = lambda x: [float(y) for y in x.readline().strip().split()]
             m = numpy.array([read(data), read(data), read(data)])
             name, _ = file.split(".")
-            projections[float(name)] = m
+            name = float(name)
+            projections[name] = Projection(name, m)
     return projections
 
-class Patch(object):
-    def __init__(self, realcoords, normal, score, visibles, disagrees):
-        self.realcoords = numpy.array(realcoords)
-        self.normal = numpy.array(normal)
-        self.score = score
-        self.visibles = visibles
-        self.disagrees = disagrees
+class Projection(object):
+    def __init__(self, id, matrix):
+        self.id = id
+        self.matrix = matrix
 
-    def __repr__(self):
-        return "Patch%s" % str((self.realcoords, self.normal, self.score,
-                                self.visibles, self.disagrees))
-
-    def project(self, projection):
-        a = numpy.dot(projection, self.realcoords)
-        return (a / a[2])[0:2]
-
-    def projectall(self, projections, disagrees = True):
-        if disagrees:
-            use = self.visibles + self.disagrees
-        else:
-            use = self.visibles
-        mapping = {}
-        for point in self.visibles + self.disagrees:
-            mapping[point] = self.project(projections[point])
-        return mapping
-
+    def realworld(self, coords):
+        coords = numpy.array([coords[0], coords[1], 1])
+        bp = scipy.linalg.pinv(self.matrix)
+        a = numpy.dot(bp, coords)
+        return a / a[3]
 
 if __name__ == "__main__":
     patches, projections = read("/csail/vision-videolabelme/databases/video_adapt/home_ac_a/frames/0/bundler/pmvs")
 
+    projection = projections[patches[0].visibles[0]]
     print patches[0].realcoords
-    print patches[0].project(projections[0])
+    a = patches[0].project(projection)
+    print a
+    print projection.realworld(a)
