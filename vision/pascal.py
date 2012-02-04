@@ -52,7 +52,7 @@ class PascalDataset(object):
                 ybr = int(object.find("bndbox/ymax").text)
 
                 dataset.append(Box(xtl, ytl, xbr, ybr, label = label,
-                                image = filename))
+                                   image = filename))
         return dataset
 
     def imageset(self, imageset = "trainval"):
