@@ -23,10 +23,9 @@ class PascalDataset(object):
 
     def annotations(self, imageset = None, classes = None, nodifficult = False):
         if imageset is None:
-            imageset = self.readimageset()
+            imageset = self.imageset()
         elif isinstance(imageset, str):
-            imageset = self.readimages(imageset)
-        dataset = []
+            imageset = self.imagesset(imageset)
         for file in imageset:
             logger.info("Reading {0}".format(file))
             file = os.path.join(self.root, "Annotations", "{0}.xml".format(file))
@@ -51,9 +50,7 @@ class PascalDataset(object):
                 xbr = int(object.find("bndbox/xmax").text)
                 ybr = int(object.find("bndbox/ymax").text)
 
-                dataset.append(Box(xtl, ytl, xbr, ybr, label = label,
-                                   image = filename))
-        return dataset
+                yield Box(xtl, ytl, xbr, ybr, label = label, image = filename)
 
     def imageset(self, imageset = "trainval"):
         """
@@ -64,17 +61,17 @@ class PascalDataset(object):
         for line in open(path):
             yield line.strip()
 
-    def find(self, likecats = [], dislikecats = [], imageset = "trainval"):
+    def find(self, has = [], missing = [], imageset = "trainval"):
         answer = set()
-        for multi, type in [(1, likecats), (-1, dislikecats)]:
+        for multi, type in [(1, has), (-1, missing)]:
             for like in type:
                 path = "{0}_{1}.txt".format(like, imageset)
                 path = os.path.join(self.root, "ImageSets", "Main", path)
                 for line in open(path):
                     image, indicator = line.split()
-                    if int(indicator) * multi > 0:
+                    if int(indicator) * multi > 0 and image not in answer:
+                        yield image
                         answer.add(image)
-        return answer
 
     def image(self, image):
         path = os.path.join(self.root, "JPEGImages", image)
