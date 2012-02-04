@@ -25,7 +25,7 @@ class PascalDataset(object):
         if imageset is None:
             imageset = self.imageset()
         elif isinstance(imageset, str):
-            imageset = self.imagesset(imageset)
+            imageset = self.imageset(imageset)
         for file in imageset:
             logger.info("Reading {0}".format(file))
             file = os.path.join(self.root, "Annotations", "{0}.xml".format(file))
