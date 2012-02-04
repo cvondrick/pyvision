@@ -50,9 +50,19 @@ class Patch(object):
         return "Patch%s" % str((self.realcoords, self.normal, self.score,
                                 self.visibles, self.disagrees))
 
-    def map(self, projection):
+    def project(self, projection):
         a = numpy.dot(projection, self.realcoords)
         return a / a[2]
+
+    def projectall(self, projections, disagrees = True):
+        if disagrees:
+            use = self.visibles + self.disagrees
+        else:
+            use = self.visibles
+        mapping = {}
+        for point in self.visibles + self.disagrees:
+            mapping[point] = self.project(projections[point])
+        return mapping
 
 def read_projections(root):
     """
@@ -75,4 +85,4 @@ if __name__ == "__main__":
     p = read_patches(open("option-0000.patch"))
     proj = read_projections("/csail/vision-videolabelme/databases/video_adapt/home_ac_a/frames/0/bundler/pmvs/txt")
 
-    print p[0].map(proj[0])
+    print p[0].project(proj[0])
