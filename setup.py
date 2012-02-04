@@ -85,7 +85,8 @@ setup(
                 "vision.track",
                 "vision.ffmpeg",
                 "vision.alearn",
-                "vision.reporting"],
+                "vision.reporting",
+                "vision.reconstruct3d"],
     cmdclass = {"build_ext": build_ext},
     ext_modules = ext_modules,
     #ext_package = "vision"
