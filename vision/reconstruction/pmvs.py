@@ -1,6 +1,9 @@
 import os
 import numpy
-import scipy.linalg
+import itertools
+import logging
+
+logger = logging.getLogger("vision.reconstruction.pmvs")
 
 def read(root):
     """
@@ -98,17 +101,62 @@ class Projection(object):
         self.id = id
         self.matrix = matrix
 
-    def realworld(self, coords):
-        coords = numpy.array([coords[0], coords[1], 1])
-        bp = scipy.linalg.pinv(self.matrix)
-        a = numpy.dot(bp, coords)
-        return a / a[3]
+class RealWorldMap(object):
+    def __init__(self, patches, projections, size):
+        self.patches = patches
+        self.projections = projections
+        self.width, self.height = size
+
+        self.build()
+
+    def build(self):
+        self.mapping = {}
+        for num, patch in enumerate(self.patches):
+            if num % 1000 == 0:
+                logger.debug("Read in {0} of {1} patches".format(num, len(self.patches)))
+            resp = {}
+            for _, projection in self.projections.items():
+                resp[projection] = patch.project(projection)
+            self.mapping[tuple(patch.realcoords)] = resp
+        logger.debug("Read in {0} of {0} patches".format(len(self.patches)))
+        return self.mapping
+
+    def realtoimages(self, coords):
+        best = None
+        bestscore = None
+        for realcoords in self.mapping:
+            score = sum(abs(i - j) for i, j in zip(coords, realcoords))
+            if best is None or bestscore > score:
+                best = realcoords
+                bestscore = score
+        return self.mapping[best]
+
+    def imagetoreal(self, projection, coords):
+        best = None
+        bestscore = None
+        for realcoords, projs in self.mapping.iteritems():
+            if projection in projs:
+                score = sum(abs(i - j) for i, j in zip(coords, projs[projection]))
+                if best is None or bestscore > score:
+                    best = realcoords
+                    bestscore = score
+        return numpy.array(best)
 
 if __name__ == "__main__":
-    patches, projections = read("/csail/vision-videolabelme/databases/video_adapt/home_ac_a/frames/0/bundler/pmvs")
+    logging.basicConfig(level = logging.DEBUG)
 
-    projection = projections[patches[0].visibles[0]]
-    print patches[0].realcoords
-    a = patches[0].project(projection)
-    print a
-    print projection.realworld(a)
+    patches, projections = read("/csail/vision-videolabelme/databases/video_adapt/home_ac_a/frames/0/bundler/pmvs")
+    patches = patches[0:100]
+    mapping = RealWorldMap(patches, projections, (400, 224))
+
+    patch = patches[0]
+    print "REAL ="
+    print patch.realcoords
+    print ""
+    a, b = mapping.realtoimages(patch.realcoords).items()[0]
+    print "PROJECTION ="
+    print b
+    print ""
+    print "REAL (again) ="
+    r = mapping.imagetoreal(a, b)
+    print r
