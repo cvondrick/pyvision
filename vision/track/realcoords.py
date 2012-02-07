@@ -19,25 +19,24 @@ def track(video, seed, mapping, pool = None):
             activeregion.append(mapping.imagetoreal(projection, (x, y)))
 
     logger.debug("Projecting")
+    points = mapping.realregiontoimages(activeregion)
+
+    logger.debug("Finding boxes")
     resp = []
     for image in range(len(video)):
-        resp.append(track_project(image, video, mapping, activeregion))
+        resp.append(track_project(image, video, points))
 
     return resp
 
-def track_project(image, video, mapping, activeregion):
-    logger.debug("Projecting points into {0}".format(image))
-    coords = []
-    for real in activeregion:
-        images = mapping.realtoimages(real)
-        if image in images:
-            coord = images[image]
-            coords.append(coord)
+def track_project(image, video, points):
+    logger.debug("Finding box for {0}".format(image))
 
-    if len(coords) == 0:
+    if image not in points: 
         logger.debug("Point did not map, so assume lost")
         box = vision.Box(0, 0, 1, 1, image, lost = 1)
     else:
+        coords = points[image]
+
         bxtl = int(min(i[0] for i in coords))
         bytl = int(min(i[1] for i in coords))
         bxbr = int(max(i[0] for i in coords))
@@ -82,14 +81,15 @@ if __name__ == "__main__":
 
     path = ("/csail/vision-videolabelme/databases/"
             "video_adapt/home_ac_a/frames/0/bundler")
+    path = "/csail/vision-videolabelme/databases/video_adapt/demos/bottle_table/bundler"
 
     video = vision.flatframeiterator(path, 1, 5)
 
     root = os.path.join(path, "pmvs")
     mapping = pmvs.RealWorldMap(*pmvs.read(root))
 
-    seed = vision.Box(100, 100, 120, 120, 1)
-    seed.image = 1
+    seed = vision.Box(173, 30, 173 + 51, 30 + 137, 0)
+    seed.image = 0
     predicted = track(video, seed, mapping, pool)
 
     vit = visualize.highlight_path(video, predicted)

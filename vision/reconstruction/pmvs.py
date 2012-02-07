@@ -14,10 +14,20 @@ def read(root):
     that is necessary to reconstruct the scene.
     """
     logger.debug("Read {0}".format(root))
-    patches = read_patches(open("{0}/models/option-0000.patch".format(root)))
+    patches = read_patches(open(find_patch_file(root))) 
     projections = read_projections("{0}/txt/".format(root))
 
     return patches, projections
+
+def find_patch_file(root):
+    """
+    Finds the patch file
+    """
+    root = os.path.join(root, "models")
+    for file in os.listdir(root):
+        if file.endswith(".patch"):
+            return os.path.join(root, file)
+    raise RuntimeError("No patch file found in {0}".format(root))
 
 def read_patches(data):
     """
@@ -147,6 +157,18 @@ class RealWorldMap(object):
         _, nearestindex = self.realtree.query(coords)
         nearest = self.realtree.data[nearestindex]
         return self.realmapping[tuple(nearest)]
+
+    def realregiontoimages(self, coords):
+        _, nearestindices = self.realtree.query(coords)
+        resp = {}
+        for nearestindex in nearestindices:
+            nearest = self.realtree.data[nearestindex]
+            points = self.realmapping[tuple(nearest)]
+            for k, v in points.iteritems():
+                if k not in resp:
+                    resp[k] = []
+                resp[k].append(v)
+        return resp
 
     def imagetoreal(self, projection, coords):
         try:
