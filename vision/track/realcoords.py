@@ -41,6 +41,13 @@ def track_project(workorder):
     bxbr = int(max(i[0] for i in coords))
     bybr = int(max(i[1] for i in coords))
 
+    if bxtl == bxbr:
+        logger.warning("Real X coord bounds is a point, adjusting")
+        bxbr += 1
+    if bytl == bybr:
+        logger.warning("Real Y coord bounds is a point, adjusting")
+        bybr += 1
+
     return vision.Box(bxtl, bytl, bxbr, bybr, image)
 
 if __name__ == "__main__":

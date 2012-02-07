@@ -117,13 +117,13 @@ class RealWorldMap(object):
         self.mapping = {}
         for num, patch in enumerate(self.patches):
             if num % 1000 == 0:
-                logger.debug("Read in {0} of {1} patches".format(num, len(self.patches)))
+                logger.debug("Built maps for {0} of {1} patches".format(num, len(self.patches)))
             resp = {}
             for _, projection in self.projections.items():
                 resp[projection.id] = patch.project(projection)
             self.mapping[tuple(patch.realcoords)] = resp
         if num % 1000 > 0:
-            logger.debug("Read in {0} of {0} patches".format(len(self.patches)))
+            logger.debug("Built maps for {0} of {0} patches".format(len(self.patches)))
 
     def realtoimages(self, coords):
         best = None
