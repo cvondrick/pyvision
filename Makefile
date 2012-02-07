@@ -1,5 +1,5 @@
 pyvision :
-	python setup.py build --disable-ffmpeg
+	python setup.py install --disable-ffmpeg
 
 clean :
 	rm -rfv build

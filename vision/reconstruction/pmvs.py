@@ -20,6 +20,8 @@ def read_patches(data):
     Reads a PMVS patch file, typically called something like option-0000.patch. 
     Returns an array of patches.
     """
+    logger.debug("Read {0}".format(data.name))
+
     if data.readline().strip() != "PATCHES":
         raise RuntimeError("expected PATCHES header")
 
@@ -87,6 +89,7 @@ def read_projections(root):
         if not file.endswith(".txt"):
             continue
         with open(os.path.join(root, file)) as data:
+            logger.debug("Read {0}".format(data.name))
             if data.readline().strip() != "CONTOUR":
                 raise RuntimeError("expceted CONTOUR header")
             read = lambda x: [float(y) for y in x.readline().strip().split()]
@@ -102,10 +105,9 @@ class Projection(object):
         self.matrix = matrix
 
 class RealWorldMap(object):
-    def __init__(self, patches, projections, size):
+    def __init__(self, patches, projections):
         self.patches = patches
         self.projections = projections
-        self.width, self.height = size
 
         self.build()
 
@@ -116,10 +118,10 @@ class RealWorldMap(object):
                 logger.debug("Read in {0} of {1} patches".format(num, len(self.patches)))
             resp = {}
             for _, projection in self.projections.items():
-                resp[projection] = patch.project(projection)
+                resp[projection.id] = patch.project(projection)
             self.mapping[tuple(patch.realcoords)] = resp
-        logger.debug("Read in {0} of {0} patches".format(len(self.patches)))
-        return self.mapping
+        if num % 1000 > 0:
+            logger.debug("Read in {0} of {0} patches".format(len(self.patches)))
 
     def realtoimages(self, coords):
         best = None
@@ -132,6 +134,10 @@ class RealWorldMap(object):
         return self.mapping[best]
 
     def imagetoreal(self, projection, coords):
+        try:
+            projection = projection.id
+        except:
+            pass
         best = None
         bestscore = None
         for realcoords, projs in self.mapping.iteritems():
@@ -148,13 +154,12 @@ class RealWorldMap(object):
         """
         return sum(abs(i - j) for i, j in zip(a, b))
 
-
 if __name__ == "__main__":
     logging.basicConfig(level = logging.DEBUG)
 
     patches, projections = read("/csail/vision-videolabelme/databases/video_adapt/home_ac_a/frames/0/bundler/pmvs")
     patches = patches[0:100]
-    mapping = RealWorldMap(patches, projections, (400, 224))
+    mapping = RealWorldMap(patches, projections)
 
     patch = patches[0]
     print "REAL ="

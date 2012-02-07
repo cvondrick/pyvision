@@ -2,6 +2,7 @@ import math
 import numpy
 import re
 import Image
+import os.path
 
 cimport numpy
 cimport cython
@@ -235,8 +236,11 @@ class frameiterator(object):
     """
     A simple iterator to produce frames.
     """
-    def __init__(self, base):
+    def __init__(self, base, start = 0, skip = 1):
         self.base = base
+        self.start = start
+        self.skip = skip
+        self.length = None
 
     def path(self, frame):
         l1 = frame / 10000
@@ -245,8 +249,31 @@ class frameiterator(object):
         path = "{0}/{1}".format(self.base, path)
         return path
 
+    def __len__(self):
+        if not self.length:
+            i = self.start
+            counter = 0
+            while True:
+                if not os.path.exists(self.path(i)):
+                    self.length = counter
+                    break
+                counter += 1
+                i += self.skip
+
+        return self.length
+
     def __getitem__(self, frame):
         return Image.open(self.path(frame))
+
+    def __iter__(self):
+        i = self.start
+        while True:
+            try:
+                yield self[i]
+            except IOError:
+                raise
+            else:
+                i += self.skip
 
 class flatframeiterator(frameiterator):
     def path(self, frame):
