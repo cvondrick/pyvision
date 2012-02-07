@@ -22,17 +22,12 @@ def track(video, seed, mapping, pool = None):
     points = mapping.realregiontoimages(activeregion)
 
     logger.debug("Finding boxes")
-    resp = []
-    for image in range(len(video)):
-        resp.append(track_project(image, video, points))
+    resp = [track_project(x, video, points) for x in range(len(video))]
 
     return resp
 
 def track_project(image, video, points):
-    logger.debug("Finding box for {0}".format(image))
-
     if image not in points: 
-        logger.debug("Point did not map, so assume lost")
         box = vision.Box(0, 0, 1, 1, image, lost = 1)
     else:
         coords = points[image]
@@ -54,7 +49,6 @@ def track_project(image, video, points):
             bybr = h
 
         if bxbr < 0 or bybr < 0 or bxtl >= w or bytl > h:
-            logger.debug("Object is lost")
             box = vision.Box(0, 0, 1, 1, image, lost = 1)
         else:
             if bxtl >= bxbr:
