@@ -114,10 +114,12 @@ class RealWorldMap(object):
         self.build()
 
     def build(self):
-        self.realmapping = {}
+        logger.debug("Building maps for conversion between real and image space")
+
         self.imagetree = {}
         self.imagemap = {}
         self.realtree = KDTree([x.realcoords for x in self.patches])
+        self.realmapping = {}
 
         for num, patch in enumerate(self.patches):
             if num % 1000 == 0:
@@ -159,7 +161,8 @@ class RealWorldMap(object):
 if __name__ == "__main__":
     logging.basicConfig(level = logging.DEBUG)
 
-    patches, projections = read("/csail/vision-videolabelme/databases/video_adapt/home_ac_a/frames/0/bundler/pmvs")
+    patches, projections = read("/csail/vision-videolabelme/databases/"
+                                "video_adapt/home_ac_a/frames/0/bundler/pmvs")
     patches = patches[0:100]
     mapping = RealWorldMap(patches, projections)
 

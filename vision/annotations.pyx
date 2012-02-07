@@ -259,7 +259,6 @@ class frameiterator(object):
                     break
                 counter += 1
                 i += self.skip
-
         return self.length
 
     def __getitem__(self, frame):

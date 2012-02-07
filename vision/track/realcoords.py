@@ -33,37 +33,43 @@ def track_project(workorder):
     logger.debug("Projecting points into {0}".format(image))
     coords = []
     for real in activeregion:
-        coord = mapping.realtoimages(real)[image]
-        coords.append(coord)
+        images = mapping.realtoimages(real)
+        if image in images:
+            coord = images[image]
+            coords.append(coord)
 
-    bxtl = int(min(i[0] for i in coords))
-    bytl = int(min(i[1] for i in coords))
-    bxbr = int(max(i[0] for i in coords))
-    bybr = int(max(i[1] for i in coords))
-
-    w, h = video[image].size
-
-    if bxtl < 0:
-        bxtl = 0
-    if bytl < 0:
-        bytl = 0
-    if bxbr >= w:
-        bxbr = w
-    if bybr >= h:
-        bybr = h
-
-    if bxbr < 0 or bybr < 0 or bxtl >= w or bytl > h:
-        logger.debug("Object is lost")
+    if len(coords) == 0:
+        logger.debug("Point did not map, so assume lost")
         box = vision.Box(0, 0, 1, 1, lost = 1)
     else:
-        if bxtl <= bxbr:
-            logger.warning("Real X coord bounds is a point, adjusting")
-            bxbr = bxtl + 1
-        if bytl <= bybr:
-            logger.warning("Real Y coord bounds is a point, adjusting")
-            bybr = bytl + 1
+        bxtl = int(min(i[0] for i in coords))
+        bytl = int(min(i[1] for i in coords))
+        bxbr = int(max(i[0] for i in coords))
+        bybr = int(max(i[1] for i in coords))
 
-        box = vision.Box(bxtl, bytl, bxbr, bybr, image)
+        w, h = video[image].size
+
+        if bxtl < 0:
+            bxtl = 0
+        if bytl < 0:
+            bytl = 0
+        if bxbr >= w:
+            bxbr = w
+        if bybr >= h:
+            bybr = h
+
+        if bxbr < 0 or bybr < 0 or bxtl >= w or bytl > h:
+            logger.debug("Object is lost")
+            box = vision.Box(0, 0, 1, 1, lost = 1)
+        else:
+            if bxtl >= bxbr:
+                logger.warning("Real X coord bounds is a point, adjusting")
+                bxbr = bxtl + 1
+            if bytl >= bybr:
+                logger.warning("Real Y coord bounds is a point, adjusting")
+                bybr = bytl + 1
+
+            box = vision.Box(bxtl, bytl, bxbr, bybr, image)
 
     return box
 
@@ -81,10 +87,10 @@ if __name__ == "__main__":
     path = ("/csail/vision-videolabelme/databases/"
             "video_adapt/home_ac_a/frames/0/bundler")
 
+    video = vision.flatframeiterator(path, 1, 5)
+
     root = os.path.join(path, "pmvs")
     mapping = pmvs.RealWorldMap(*pmvs.read(root))
-
-    video = vision.flatframeiterator(path, 1, 5)
 
     seed = vision.Box(100, 100, 120, 120, 1)
     seed.image = 1
