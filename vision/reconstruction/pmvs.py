@@ -125,7 +125,7 @@ class RealWorldMap(object):
         best = None
         bestscore = None
         for realcoords in self.mapping:
-            score = sum(abs(i - j) for i, j in zip(coords, realcoords))
+            score = self.score(coords, realcoords)
             if best is None or bestscore > score:
                 best = realcoords
                 bestscore = score
@@ -136,11 +136,18 @@ class RealWorldMap(object):
         bestscore = None
         for realcoords, projs in self.mapping.iteritems():
             if projection in projs:
-                score = sum(abs(i - j) for i, j in zip(coords, projs[projection]))
+                score = self.score(coords, projs[projection])
                 if best is None or bestscore > score:
                     best = realcoords
                     bestscore = score
         return numpy.array(best)
+
+    def score(self, a, b):
+        """
+        Scores how close two coords match"
+        """
+        return sum(abs(i - j) for i, j in zip(a, b))
+
 
 if __name__ == "__main__":
     logging.basicConfig(level = logging.DEBUG)
