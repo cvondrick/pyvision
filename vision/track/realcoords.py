@@ -4,7 +4,7 @@ import vision
 
 logger = logging.getLogger("vision.track.realcoords")
 
-def track(video, seed, mapping, pool = None):
+def track(video, seed, mapping):
     """
     This tracker uses a 3D reconstruction of a scene in order to
     localize objects throughout a video sequence.
@@ -66,10 +66,7 @@ if __name__ == "__main__":
     import vision.drawer
     import os.path
     from vision import visualize
-    import multiprocessing
-
-    pool = multiprocessing.Pool(16)
-    #pool = None
+    import random
 
     logging.basicConfig(level = logging.DEBUG)
 
@@ -80,11 +77,13 @@ if __name__ == "__main__":
     video = vision.flatframeiterator(path, 1, 5)
 
     root = os.path.join(path, "pmvs")
-    mapping = pmvs.RealWorldMap(*pmvs.read(root))
+    patches, projections = pmvs.read(root)
+    patches = random.sample(patches, 1000)
+    mapping = pmvs.RealWorldMap(patches, projections)
 
     seed = vision.Box(173, 30, 173 + 51, 30 + 137, 0)
     seed.image = 0
-    predicted = track(video, seed, mapping, pool)
+    predicted = track(video, seed, mapping)
 
     vit = visualize.highlight_path(video, predicted)
     visualize.save(vit, lambda x: "tmp/path{0}.jpg".format(x))
