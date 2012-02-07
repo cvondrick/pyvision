@@ -163,7 +163,7 @@ if __name__ == "__main__":
 
     patches, projections = read("/csail/vision-videolabelme/databases/"
                                 "video_adapt/home_ac_a/frames/0/bundler/pmvs")
-    patches = patches[0:100]
+
     mapping = RealWorldMap(patches, projections)
 
     patch = patches[0]

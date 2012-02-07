@@ -69,12 +69,10 @@ def highlight_path(images, path, color = colors[0], width = defaultwidth,
             lost = box.lost
         except:
             lost = False
+        image = images[box.frame]
         if not lost:
-            image = images[box.frame]
             highlight_box(image, box, color, width, font)
-            yield image, box.frame
-        else:
-            yield image, box.frame
+        yield image, box.frame
 
 def highlight_paths(images, paths, colors = colors, width = defaultwidth,
     font = None):

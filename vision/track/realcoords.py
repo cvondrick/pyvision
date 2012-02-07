@@ -18,18 +18,14 @@ def track(video, seed, mapping, pool = None):
         for y in range(ytl, ybr):
             activeregion.append(mapping.imagetoreal(projection, (x, y)))
 
-    logger.debug("Setting up work orders")
-    workorders = [(x, video, mapping, activeregion) for x in range(len(video))]
-    mapper = pool.map if pool else map
-
     logger.debug("Projecting")
-    resp = mapper(track_project, workorders)
+    resp = []
+    for image in range(len(video)):
+        resp.append(track_project(image, video, mapping, activeregion))
 
     return resp
 
-def track_project(workorder):
-    image, video, mapping, activeregion = workorder
-
+def track_project(image, video, mapping, activeregion):
     logger.debug("Projecting points into {0}".format(image))
     coords = []
     for real in activeregion:
@@ -40,7 +36,7 @@ def track_project(workorder):
 
     if len(coords) == 0:
         logger.debug("Point did not map, so assume lost")
-        box = vision.Box(0, 0, 1, 1, lost = 1)
+        box = vision.Box(0, 0, 1, 1, image, lost = 1)
     else:
         bxtl = int(min(i[0] for i in coords))
         bytl = int(min(i[1] for i in coords))
@@ -60,7 +56,7 @@ def track_project(workorder):
 
         if bxbr < 0 or bybr < 0 or bxtl >= w or bytl > h:
             logger.debug("Object is lost")
-            box = vision.Box(0, 0, 1, 1, lost = 1)
+            box = vision.Box(0, 0, 1, 1, image, lost = 1)
         else:
             if bxtl >= bxbr:
                 logger.warning("Real X coord bounds is a point, adjusting")
@@ -79,8 +75,8 @@ if __name__ == "__main__":
     from vision import visualize
     import multiprocessing
 
-    #pool = multiprocessing.Pool(16)
-    pool = None
+    pool = multiprocessing.Pool(16)
+    #pool = None
 
     logging.basicConfig(level = logging.DEBUG)
 
