@@ -263,7 +263,7 @@ class frameiterator(object):
         return self.length
 
     def __getitem__(self, frame):
-        return Image.open(self.path(frame))
+        return Image.open(self.path((frame * self.skip) + self.start))
 
     def __iter__(self):
         i = self.start

@@ -3,8 +3,11 @@ import numpy
 import itertools
 import logging
 
+from memo import memo
+
 logger = logging.getLogger("vision.reconstruction.pmvs")
 
+@memo("memo/")
 def read(root):
     """
     Returns a reconstruction object that has all the important information in it
