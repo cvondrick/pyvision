@@ -115,19 +115,32 @@ class RealWorldMap(object):
 
     def build(self):
         self.realmapping = {}
-        self.imagemapping = {}
+        self.imagetree = {}
+        self.imagemap = {}
         self.realtree = KDTree([x.realcoords for x in self.patches])
 
         for num, patch in enumerate(self.patches):
             if num % 1000 == 0:
                 logger.debug("Built maps for {0} of {1} patches".format(num, len(self.patches)))
+
             resp = {}
             for _, projection in self.projections.items():
-                resp[projection.id] = patch.project(projection)
-
+                inimage = patch.project(projection)
+                if projection.id not in self.imagetree:
+                    self.imagetree[projection.id] = []
+                    self.imagemap[projection.id] = {}
+                self.imagetree[projection.id].append(inimage)
+                self.imagemap[projection.id][tuple(inimage)] = patch.realcoords
+                resp[projection.id] = inimage
+                
             self.realmapping[tuple(patch.realcoords)] = resp
-        if num % 1000 > 0:
-            logger.debug("Built maps for {0} of {0} patches".format(len(self.patches)))
+
+        logger.debug("Done building maps for {0} patches".format(len(self.patches)))
+
+        logger.debug("Building image KD tree")
+        for key, imagecoords in self.imagetree.items():
+            self.imagetree[key] = KDTree(imagecoords)
+
 
     def realtoimages(self, coords):
         _, nearestindex = self.realtree.query(coords)
@@ -139,21 +152,10 @@ class RealWorldMap(object):
             projection = projection.id
         except:
             pass
-        best = None
-        bestscore = None
-        for realcoords, projs in self.realmapping.iteritems():
-            if projection in projs:
-                score = self.score(coords, projs[projection])
-                if best is None or bestscore > score:
-                    best = realcoords
-                    bestscore = score
-        return numpy.array(best)
 
-    def score(self, a, b):
-        """
-        Scores how close two coords match"
-        """
-        return sum(abs(i - j) for i, j in zip(a, b))
+        _, nearestindex = self.imagetree[projection].query(coords)
+        nearest = self.imagetree[projection].data[nearestindex]
+        return self.imagemap[projection][tuple(nearest)]
 
 if __name__ == "__main__":
     logging.basicConfig(level = logging.DEBUG)

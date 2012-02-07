@@ -41,14 +41,31 @@ def track_project(workorder):
     bxbr = int(max(i[0] for i in coords))
     bybr = int(max(i[1] for i in coords))
 
-    if bxtl == bxbr:
-        logger.warning("Real X coord bounds is a point, adjusting")
-        bxbr += 1
-    if bytl == bybr:
-        logger.warning("Real Y coord bounds is a point, adjusting")
-        bybr += 1
+    w, h = video[image].size
 
-    return vision.Box(bxtl, bytl, bxbr, bybr, image)
+    if bxtl < 0:
+        bxtl = 0
+    if bytl < 0:
+        bytl = 0
+    if bxbr >= w:
+        bxbr = w
+    if bybr >= h:
+        bybr = h
+
+    if bxbr < 0 or bybr < 0 or bxtl >= w or bytl > h:
+        logger.debug("Object is lost")
+        box = vision.Box(0, 0, 1, 1, lost = 1)
+    else:
+        if bxtl <= bxbr:
+            logger.warning("Real X coord bounds is a point, adjusting")
+            bxbr = bxtl + 1
+        if bytl <= bybr:
+            logger.warning("Real Y coord bounds is a point, adjusting")
+            bybr = bytl + 1
+
+        box = vision.Box(bxtl, bytl, bxbr, bybr, image)
+
+    return box
 
 if __name__ == "__main__":
     import vision.drawer
@@ -56,7 +73,7 @@ if __name__ == "__main__":
     from vision import visualize
     import multiprocessing
 
-    pool = multiprocessing.Pool(16)
+    #pool = multiprocessing.Pool(16)
     pool = None
 
     logging.basicConfig(level = logging.DEBUG)
