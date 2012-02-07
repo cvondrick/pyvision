@@ -2,6 +2,7 @@ import os
 import numpy
 import itertools
 import logging
+from scipy.spatial.kdtree import KDTree
 
 from memo import memo
 
@@ -12,6 +13,7 @@ def read(root):
     Returns a reconstruction object that has all the important information in it
     that is necessary to reconstruct the scene.
     """
+    logger.debug("Read {0}".format(root))
     patches = read_patches(open("{0}/models/option-0000.patch".format(root)))
     projections = read_projections("{0}/txt/".format(root))
 
@@ -22,7 +24,6 @@ def read_patches(data):
     Reads a PMVS patch file, typically called something like option-0000.patch. 
     Returns an array of patches.
     """
-    logger.debug("Read {0}".format(data.name))
 
     if data.readline().strip() != "PATCHES":
         raise RuntimeError("expected PATCHES header")
@@ -91,7 +92,6 @@ def read_projections(root):
         if not file.endswith(".txt"):
             continue
         with open(os.path.join(root, file)) as data:
-            logger.debug("Read {0}".format(data.name))
             if data.readline().strip() != "CONTOUR":
                 raise RuntimeError("expceted CONTOUR header")
             read = lambda x: [float(y) for y in x.readline().strip().split()]
@@ -115,6 +115,8 @@ class RealWorldMap(object):
 
     def build(self):
         self.mapping = {}
+        self.realtree = KDTree([x.realcoords for x in self.patches])
+
         for num, patch in enumerate(self.patches):
             if num % 1000 == 0:
                 logger.debug("Built maps for {0} of {1} patches".format(num, len(self.patches)))
@@ -126,14 +128,9 @@ class RealWorldMap(object):
             logger.debug("Built maps for {0} of {0} patches".format(len(self.patches)))
 
     def realtoimages(self, coords):
-        best = None
-        bestscore = None
-        for realcoords in self.mapping:
-            score = self.score(coords, realcoords)
-            if best is None or bestscore > score:
-                best = realcoords
-                bestscore = score
-        return self.mapping[best]
+        _, nearestindex = self.realtree.query(coords)
+        nearest = self.realtree.data[nearestindex]
+        return self.mapping[tuple(nearest)]
 
     def imagetoreal(self, projection, coords):
         try:
