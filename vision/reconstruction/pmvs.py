@@ -141,7 +141,6 @@ class RealWorldMap(object):
         for key, imagecoords in self.imagetree.items():
             self.imagetree[key] = KDTree(imagecoords)
 
-
     def realtoimages(self, coords):
         _, nearestindex = self.realtree.query(coords)
         nearest = self.realtree.data[nearestindex]
