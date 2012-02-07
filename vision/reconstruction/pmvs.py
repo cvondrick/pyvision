@@ -114,7 +114,8 @@ class RealWorldMap(object):
         self.build()
 
     def build(self):
-        self.mapping = {}
+        self.realmapping = {}
+        self.imagemapping = {}
         self.realtree = KDTree([x.realcoords for x in self.patches])
 
         for num, patch in enumerate(self.patches):
@@ -123,14 +124,15 @@ class RealWorldMap(object):
             resp = {}
             for _, projection in self.projections.items():
                 resp[projection.id] = patch.project(projection)
-            self.mapping[tuple(patch.realcoords)] = resp
+
+            self.realmapping[tuple(patch.realcoords)] = resp
         if num % 1000 > 0:
             logger.debug("Built maps for {0} of {0} patches".format(len(self.patches)))
 
     def realtoimages(self, coords):
         _, nearestindex = self.realtree.query(coords)
         nearest = self.realtree.data[nearestindex]
-        return self.mapping[tuple(nearest)]
+        return self.realmapping[tuple(nearest)]
 
     def imagetoreal(self, projection, coords):
         try:
@@ -139,7 +141,7 @@ class RealWorldMap(object):
             pass
         best = None
         bestscore = None
-        for realcoords, projs in self.mapping.iteritems():
+        for realcoords, projs in self.realmapping.iteritems():
             if projection in projs:
                 score = self.score(coords, projs[projection])
                 if best is None or bestscore > score:
