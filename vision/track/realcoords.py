@@ -9,7 +9,6 @@ def track(video, seed, mapping):
     This tracker uses a 3D reconstruction of a scene in order to
     localize objects throughout a video sequence.
     """
-
     logger.debug("Calculating active region in 3-space")
     xtl, ytl, xbr, ybr = seed[0:4]
     projection = mapping.projections[seed.image]
@@ -22,45 +21,45 @@ def track(video, seed, mapping):
     points = mapping.realregiontoimages(activeregion)
 
     logger.debug("Finding boxes")
-    resp = [track_project(x, video, points) for x in range(len(video))]
+    resp = [find_boxes(x, video, points) for x in range(len(video))]
 
     return resp
 
-def track_project(image, video, points):
+def find_boxes(image, video, points):
     if image not in points: 
-        box = vision.Box(0, 0, 1, 1, image, lost = 1)
-    else:
-        coords = points[image]
+        return vision.Box(0, 0, 1, 1, image, lost = 1)
 
-        bxtl = int(min(i[0] for i in coords))
-        bytl = int(min(i[1] for i in coords))
-        bxbr = int(max(i[0] for i in coords))
-        bybr = int(max(i[1] for i in coords))
+    coords = points[image]
 
-        w, h = video[image].size
+    bxtl = int(min(i[0] for i in coords))
+    bytl = int(min(i[1] for i in coords))
+    bxbr = int(max(i[0] for i in coords))
+    bybr = int(max(i[1] for i in coords))
 
-        if bxtl < 0:
-            bxtl = 0
-        if bytl < 0:
-            bytl = 0
-        if bxbr >= w:
-            bxbr = w
-        if bybr >= h:
-            bybr = h
+    w, h = video[image].size
 
-        if bxbr < 0 or bybr < 0 or bxtl >= w or bytl > h:
-            box = vision.Box(0, 0, 1, 1, image, lost = 1)
-        else:
-            if bxtl >= bxbr:
-                logger.warning("Real X coord bounds is a point, adjusting")
-                bxbr = bxtl + 1
-            if bytl >= bybr:
-                logger.warning("Real Y coord bounds is a point, adjusting")
-                bybr = bytl + 1
+    if bxtl < 0:
+        bxtl = 0
+    if bytl < 0:
+        bytl = 0
+    if bxbr >= w:
+        bxbr = w
+    if bybr >= h:
+        bybr = h
 
-            box = vision.Box(bxtl, bytl, bxbr, bybr, image)
+    if bxbr < 0 or bybr < 0 or bxtl >= w or bytl > h:
+        return vision.Box(0, 0, 1, 1, image, lost = 1)
 
-    return box
+    if bxtl >= bxbr:
+        logger.warning("Real X coord bounds is a point, adjusting")
+        bxbr = bxtl + 1
+    if bytl >= bybr:
+        logger.warning("Real Y coord bounds is a point, adjusting")
+        bybr = bytl + 1
+
+    return vision.Box(bxtl, bytl, bxbr, bybr, image)
+
+def dump_ply(
 
 if __name__ == "__main__":
     import vision.drawer
