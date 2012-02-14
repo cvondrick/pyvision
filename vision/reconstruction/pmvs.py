@@ -93,6 +93,21 @@ class Patch(object):
             mapping[point] = self.project(projections[point])
         return mapping
 
+def get_patch_bounds(patches):
+    xmin = ymin = zmin = float("+infinity")
+    xmax = ymax = zmax = float("-infinity")
+
+    for patch in patches:
+        x, y, z, _ = patch.realcoords
+        xmin = min(xmin, x)
+        ymin = min(ymin, y)
+        zmin = min(zmin, z)
+        xmax = max(xmax, x)
+        ymax = max(ymax, y)
+        zmax = max(zmax, z)
+
+    return ((xmin, xmax), (ymin, ymax), (zmin, zmax))
+
 def read_projections(root):
     """
     Reads in all the projection information stored inside txt files.
@@ -184,7 +199,9 @@ if __name__ == "__main__":
     logging.basicConfig(level = logging.DEBUG)
 
     patches, projections = read("/csail/vision-videolabelme/databases/"
-                                "video_adapt/home_ac_a/frames/0/bundler/pmvs")
+                                "video_adapt/demos/bottle_table/bundler/pmvs")
+
+    print get_patch_bounds(patches)
 
     mapping = RealWorldMap(patches, projections)
 
