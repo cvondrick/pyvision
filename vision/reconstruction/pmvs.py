@@ -80,8 +80,7 @@ class Patch(object):
                                 self.visibles, self.disagrees))
 
     def project(self, projection):
-        a = numpy.dot(projection.matrix, self.realcoords)
-        return (a / a[2])[0:2]
+        return projection.project(self.realcoords)
 
     def projectall(self, projections, disagrees = True):
         if disagrees:
@@ -130,6 +129,10 @@ class Projection(object):
     def __init__(self, id, matrix):
         self.id = id
         self.matrix = matrix
+
+    def project(self, real):
+        a = numpy.dot(projection.matrix, real) 
+        return (a / a[2])[0:2]
 
 class RealWorldMap(object):
     def __init__(self, patches, projections):

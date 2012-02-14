@@ -99,6 +99,10 @@ cdef class Box(object):
         uni = self.area + oth.area - xdiff * ydiff
         return float(xdiff * ydiff) / float(uni)
 
+    def contains(self, point):
+        return (self.xtl >= point[0] and self.xbr <= point[0] and
+                self.ytl >= point[1] and self.ybr <= point[1])
+
     def resize(self, xratio, yratio = None):
         """
         Resizes the box by the xratio and yratio. If no yratio is specified,
