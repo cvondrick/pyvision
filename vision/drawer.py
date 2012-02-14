@@ -22,6 +22,7 @@ except ImportError:
     pass
 else:
     def getbox(image, frame = None):
+        print "get box"
         if frame:
             box = vision.Box(*getcoords(image[frame]))
             box.frame = frame

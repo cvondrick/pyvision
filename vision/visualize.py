@@ -1,6 +1,9 @@
 import ImageDraw
 import itertools
 import random
+import logging
+
+logger = logging.getLogger("vision.visualize")
 
 defaultwidth = 1
 colors = ["#FF00FF",
@@ -64,15 +67,16 @@ def highlight_path(images, path, color = colors[0], width = defaultwidth,
     Highlights a path across many images. The images must be indexable
     by the frame. Produces a generator.
     """
+    logger.debug("Visualize path of length {0}".format(len(path)))
     for box in path:
         try:
             lost = box.lost
         except:
             lost = False
+        image = images[box.frame]
         if not lost:
-            image = images[box.frame]
             highlight_box(image, box, color, width, font)
-            yield image, box.frame
+        yield image, box.frame
 
 def highlight_paths(images, paths, colors = colors, width = defaultwidth,
     font = None):
@@ -80,6 +84,9 @@ def highlight_paths(images, paths, colors = colors, width = defaultwidth,
     Highlights multiple paths across many images. The images must be indexable
     by the frame. Produces a generator.
     """
+
+    logger.debug("Visualize {0} paths".format(len(paths)))
+
     boxmap = {}
     paths = zip(paths, itertools.cycle(colors))
 
