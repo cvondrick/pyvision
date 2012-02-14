@@ -2,13 +2,14 @@ import logging
 from vision.reconstruction import pmvs
 import numpy
 import vision
+from vision.reconstruction import plywriter
 
 cimport numpy
 from vision cimport annotations
 
 logger = logging.getLogger("vision.track.realcoords")
 
-def track(video, seeds, patches, projections, double delta = 10e-4):
+def track(video, seeds, patches, projections, double delta = 10e-3):
     """
     This tracker uses a 3D reconstruction of a scene in order to
     localize objects throughout a video sequence.
@@ -30,7 +31,7 @@ def track(video, seeds, patches, projections, double delta = 10e-4):
     logger.debug("y-bounds are: {0} thru {1}".format(ymin, ymax))
     logger.debug("z-bounds are: {0} thru {1}".format(zmin, zmax))
 
-    logger.debug("Building 3D density")
+    logger.debug("Building 3D density with delta={0}".format(delta))
     mapping = numpy.zeros(((xmax - xmin + 1) / delta,
                            (ymax - ymin + 1) / delta,
                            (zmax - zmin + 1) / delta))
@@ -54,3 +55,5 @@ def track(video, seeds, patches, projections, double delta = 10e-4):
         logger.debug("Normalizer is {0}".format(normalizer))
     else:
         raise RuntimeError("Normalizer is 0, probably no points mapped")
+
+    plywriter.write(open("mapping.ply", "w"), mapping, condition = plywriter.filterlower)
