@@ -59,8 +59,6 @@ def find_boxes(image, video, points):
 
     return vision.Box(bxtl, bytl, bxbr, bybr, image)
 
-def dump_ply(
-
 if __name__ == "__main__":
     import vision.drawer
     import os.path
