@@ -98,11 +98,14 @@ def get_patch_bounds(patches):
 
     for patch in patches:
         x, y, z, _ = patch.realcoords
+
         xmin = min(xmin, x)
-        ymin = min(ymin, y)
-        zmin = min(zmin, z)
         xmax = max(xmax, x)
+
+        ymin = min(ymin, y)
         ymax = max(ymax, y)
+
+        zmin = min(zmin, z)
         zmax = max(zmax, z)
 
     return ((xmin, xmax), (ymin, ymax), (zmin, zmax))
@@ -131,7 +134,7 @@ class Projection(object):
         self.matrix = matrix
 
     def project(self, real):
-        a = numpy.dot(projection.matrix, real) 
+        a = numpy.dot(self.matrix, real) 
         return (a / a[2])[0:2]
 
 class RealWorldMap(object):

@@ -16,7 +16,6 @@ root = os.path.join(path, "pmvs")
 patches, projections = pmvs.read(root)
 
 seed = vision.Box(173, 30, 173 + 51, 30 + 137, 0)
-seed.image = 0
 predicted = track(video, [seed], patches, projections)
 
 vit = visualize.highlight_path(video, predicted)
