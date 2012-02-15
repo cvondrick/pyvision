@@ -9,7 +9,7 @@ from vision cimport annotations
 
 logger = logging.getLogger("vision.track.realcoords")
 
-def track(video, seeds, patches, projections, double delta = 10e-3):
+def track(video, seeds, patches, projections, double delta = 10e-3 / 2):
     """
     This tracker uses a 3D reconstruction of a scene in order to
     localize objects throughout a video sequence.
@@ -22,7 +22,7 @@ def track(video, seeds, patches, projections, double delta = 10e-3):
     cdef int sxtl, sytl, sxbr, sybr
     cdef double px, py, pn
     cdef annotations.Box seed
-    cdef numpy.ndarray[numpy.double_t, ndim=3] mapping
+    cdef numpy.ndarray[numpy.double_t, ndim=3] mapping 
     cdef numpy.ndarray[numpy.double_t, ndim=2] matrix
 
     (xmin, xmax), (ymin, ymax), (zmin, zmax) = pmvs.get_patch_bounds(patches)
@@ -32,11 +32,12 @@ def track(video, seeds, patches, projections, double delta = 10e-3):
     logger.debug("z-bounds are: {0} thru {1}".format(zmin, zmax))
 
     logger.debug("Building 3D density with delta={0}".format(delta))
-    mapping = numpy.zeros(((xmax - xmin + 1) / delta,
-                           (ymax - ymin + 1) / delta,
-                           (zmax - zmin + 1) / delta))
+    mapping = numpy.zeros(((xmax - xmin) / delta,
+                           (ymax - ymin) / delta,
+                           (zmax - zmin) / delta))
     normalizer = 0
-    for seed in seeds:
+    for seednum, seed in enumerate(seeds):
+        logger.debug("Processing seed {0}".format(seednum))
         matrix = projections[seed.frame].matrix
         for x from xmin <= x <= xmax by delta: 
             for y from ymin <= y <= ymax by delta:
@@ -56,4 +57,15 @@ def track(video, seeds, patches, projections, double delta = 10e-3):
     else:
         raise RuntimeError("Normalizer is 0, probably no points mapped")
 
+#    for frame, projection in enumerate(projections):
+#        matrix = projections[frame].matrix
+#        for x from xmin <= x <= xmax by delta: 
+#            for y from ymin <= y <= ymax by delta:
+#                for z from zmin <= z <= zmax by delta:
+#                    xi = <int> ((x - xmin) / delta)
+#                    yi = <int> ((y - ymin) / delta)
+#                    zi = <int> ((z - zmin) / delta)
+#                    prob3d = mapping[xi, yi, zi]
+
+    logger.debug("Writing 3D probability map")
     plywriter.write(open("mapping.ply", "w"), mapping, condition = plywriter.filterlower)

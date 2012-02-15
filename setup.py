@@ -79,7 +79,7 @@ setup(
     author_email = "cvondric@ics.uci.edu",
     description = "A concise computer vision toolkit",
     license = "MIT",
-    version = "0.2.5",
+    version = "0.3.0",
     classifiers = ["Development Status :: 1 - Planning",
                    "Intended Audience :: Developers"],
     packages = ["vision",
