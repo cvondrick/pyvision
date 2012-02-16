@@ -13,24 +13,31 @@ def filterlower(value, lower, upper):
 def filterupper(value, lower, upper):
     return value < upper
 
-def write(outfile, data, scale = 1, colormap = red, condition = filtertrue):
+def write(outfile, data, colormap = red, condition = filtertrue, bounds = None):
     f = cStringIO.StringIO()
     lower = data.min()
     upper = data.max()
     count = 0
 
     xs, ys, zs = data.shape
+
+    if not bounds:
+        bounds = (0, xs), (0, ys), (0, zs)
+
+    (xmin, xmax), (ymin, ymax), (zmin, zmax) = bounds
+
     for x in range(0, xs):
+        xi = float(x) / xs * (xmax - xmin) + xmin
         for y in range(0, ys):
+            yi = float(y) / ys * (ymax - ymin) + ymin
             for z in range(0, zs):
+                zi = float(z) / zs * (zmax - zmin) + zmin
                 value = data[x, y, z]
                 if not condition(value, lower, upper):
                     continue
                 count += 1
                 r, g, b = colormap(value, lower, upper)
-                f.write("{0} {1} {2} {3} {4} {5}\n".format(x / scale,
-                                                           y / scale,
-                                                           z / scale,
+                f.write("{0} {1} {2} {3} {4} {5}\n".format(xi, yi, zi,
                                                            r, g, b))
     outfile.write("ply\n")
     outfile.write("format ascii 1.0\n")
