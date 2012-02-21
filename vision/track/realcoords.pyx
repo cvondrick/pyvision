@@ -21,13 +21,14 @@ def track(video, seeds, patches, projections):
     cdef double x, y, z
     cdef int pxi, pxii, pyi, pyii
     cdef int width, height
+    cdef int xmin, xmax, ymin, ymax
     cdef double normalizer, normalizer2d, score, prob3d
     cdef double px, py, pn
     cdef annotations.Box seed
     cdef numpy.ndarray[numpy.double_t, ndim=2] matrix
     cdef numpy.ndarray[numpy.double_t, ndim=2] prob2map, intersection2map
 
-    logger.debug("Cleaning seeds")
+    logger.info("Cleaning seeds")
     useseeds = []
     for seed in seeds:
         if seed.frame not in projections:
@@ -39,9 +40,9 @@ def track(video, seeds, patches, projections):
     if not seeds:
         raise RuntimeError("No seeds")
 
-    logger.debug("Using seeds in {0}".format(", ".join(str(x.frame) for x in seeds)))
+    logger.info("Using seeds in {0}".format(", ".join(str(x.frame) for x in seeds)))
 
-    logger.debug("Voting in 3-space")
+    logger.info("Voting in 3-space")
     mapping = {}
     intersection = set()
     for patch in patches:
@@ -63,8 +64,9 @@ def track(video, seeds, patches, projections):
             intersection.add((x, y, z))
 
     cdef int radius = 10
+    boxes = []
+    logger.info("Projecting votes into 2-space")
     for frame, projection in sorted(projections.items()):
-        logger.debug("Projecting into {0}".format(frame))
         matrix = projection.matrix
         videoframe = video[frame]
         prob2map = numpy.zeros(videoframe.size)
@@ -87,6 +89,10 @@ def track(video, seeds, patches, projections):
                     prob2map[pxii, pyii] += prob3d
                     normalizer2d += prob3d
 
+        xmin = -1
+        xmax = -1
+        ymin = -1
+        ymax = -1
         for x, y, z in intersection:
             pn = matrix[2,0]*x + matrix[2,1]*y +matrix[2,2]*z + matrix[2,3]
             if pn < 0:
@@ -97,34 +103,46 @@ def track(video, seeds, patches, projections):
                 for pyii in range(pyi - radius, pyi + radius + 1):
                     if pxii < 0 or pyii < 0 or pxii >= width or pyii >= height:
                         continue
+                    if xmin < 0 or pxii < xmin:
+                        xmin = pxii
+                    if xmax < 0 or pxii > xmax:
+                        xmax = pxii
+                    if ymin < 0 or pyii < ymin:
+                        ymin = pyii
+                    if ymax < 0 or pyii > ymax:
+                        ymax = pyii
                     intersection2map[pxii, pyii] = 1
+        
+        boxes.append(vision.Box(xmin, ymin, xmax, ymax, frame))
+    return boxes
 
-        if normalizer2d > 0:
-            prob2map = prob2map  / normalizer2d
-
-            plt.subplot(221)
-            plt.title("Prob of object")
-            plt.set_cmap("gray")
-            plt.title("min = {0}, max = {1}".format(prob2map.min(), prob2map.max()))
-            plt.imshow(prob2map.transpose())
-            plt.subplot(222)
-            plt.title("Frame")
-            plt.imshow(numpy.asarray(video[frame]))
-            plt.subplot(223)
-            plt.title("Prob mask")
-            plt.imshow(numpy.array(numpy.asarray(video[frame]) * numpy.tile(prob2map / prob2map.max(), (3, 1, 1)).T, numpy.uint8))
-            plt.subplot(224)
-            plt.title("Intersection mask")
-            plt.imshow(numpy.array(numpy.asarray(video[frame]) * numpy.tile(intersection2map, (3, 1, 1)).T, numpy.uint8))
-            plt.savefig("tmp/prob{0}.png".format(frame))
-            plt.clf()
-        else:
-            logger.warning("Normalizer for frame {0} is 0".format(frame))
-
-    #logger.debug("Writing 3D probability map")
-    #plywriter.write(open("mapping.ply", "w"), mapping,
-    #    condition = plywriter.filterlower, bounds = pmvs.get_patch_bounds(patches))
-
-   # logger.debug("Writing intersection map")
-   # plywriter.write(open("intersection.ply", "w"), intersection,
-   #     condition = plywriter.filterlower, bounds = bounds)
+#        if normalizer2d > 0:
+#            prob2map = prob2map  / normalizer2d
+#
+#            plt.subplot(221)
+#            plt.title("Prob of object")
+#            plt.set_cmap("gray")
+#            plt.title("min = {0}, max = {1}".format(prob2map.min(), prob2map.max()))
+#            plt.imshow(prob2map.transpose())
+#            plt.subplot(222)
+#            plt.title("Frame")
+#            plt.imshow(numpy.asarray(video[frame]))
+#            plt.subplot(223)
+#            plt.title("Prob mask")
+#            plt.imshow(numpy.array(numpy.asarray(video[frame]) * numpy.tile(prob2map / prob2map.max(), (3, 1, 1)).T, numpy.uint8))
+#            plt.subplot(224)
+#            plt.title("Intersection mask")
+#            plt.imshow(numpy.array(numpy.asarray(video[frame]) * numpy.tile(intersection2map, (3, 1, 1)).T, numpy.uint8))
+#            plt.savefig("tmp/prob{0}.png".format(frame))
+#            plt.clf()
+#        else:
+#            logger.warning("Normalizer for frame {0} is 0".format(frame))
+#
+#    #logger.debug("Writing 3D probability map")
+#    #plywriter.write(open("mapping.ply", "w"), mapping,
+#    #    condition = plywriter.filterlower, bounds = pmvs.get_patch_bounds(patches))
+#
+#   # logger.debug("Writing intersection map")
+#   # plywriter.write(open("intersection.ply", "w"), intersection,
+#   #     condition = plywriter.filterlower, bounds = bounds)
+#    return boxes

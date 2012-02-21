@@ -23,9 +23,9 @@ cdef class Box(object):
         Initializes the bounding box.
         """
         if xbr <= xtl:
-            raise TypeError("xbr must be > xtl")
+            raise TypeError("xbr ({0}) must be > xtl ({1})".format(xbr, xtl))
         elif ybr <= ytl:
-            raise TypeError("ybr must be > ytl")
+            raise TypeError("ybr ({0}) must be > ytl ({1})".format(ybr, ytl))
         elif xtl < 0:
             raise TypeError("xtl must be nonnegative")
         elif ytl < 0:
