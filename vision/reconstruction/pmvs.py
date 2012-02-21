@@ -114,6 +114,8 @@ def read_projections(root):
     """
     Reads in all the projection information stored inside txt files.
     """
+    frames = open(os.path.join(root, "..", "list.rd.txt"))
+    frames = iter(int(x[2:-5]) for x in frames)
     projections = {}
     for file in os.listdir(root):
         if not file.endswith(".txt"):
@@ -123,15 +125,14 @@ def read_projections(root):
                 raise RuntimeError("expceted CONTOUR header")
             read = lambda x: [float(y) for y in x.readline().strip().split()]
             m = numpy.array([read(data), read(data), read(data)])
-            name, _ = file.split(".")
-            name = float(name)
-            projections[name] = Projection(name, m)
+            frame = frames.next()
+            projections[frame] = Projection(m, frame)
     return projections
 
 class Projection(object):
-    def __init__(self, id, matrix):
-        self.id = id
+    def __init__(self, matrix, frame):
         self.matrix = matrix
+        self.frame = frame
 
     def project(self, real):
         a = numpy.dot(self.matrix, real) 

@@ -266,6 +266,8 @@ class frameiterator(object):
         return self.length
 
     def __getitem__(self, frame):
+        if frame < self.start:
+            raise RuntimeError("Frame {0} is before start of video".format(frame))
         return Image.open(self.path((frame * self.skip) + self.start))
 
     def __iter__(self):

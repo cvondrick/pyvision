@@ -13,110 +13,95 @@ logger = logging.getLogger("vision.track.realcoords")
 cdef extern from "math.h":
     float exp(float n)
 
-def track(video, seeds, patches, projections, double delta = 10e-3):
+def track(video, seeds, patches, projections):
     """
     This tracker uses a 3D reconstruction of a scene in order to
     localize objects throughout a video sequence.
     """
-    cdef double xmin, xmax, ymin, ymax, zmin, zmax
     cdef double x, y, z
-    cdef int xi, yi, zi
-    cdef int xs, ys, zs
+    cdef int pxi, pxii, pyi, pyii
     cdef int width, height
-    cdef double normalizer, prob3d
+    cdef double normalizer, normalizer2d, score, prob3d
     cdef double px, py, pn
-    cdef int pxi, pyi, pxii, pyii
     cdef annotations.Box seed
-    cdef numpy.ndarray[numpy.double_t, ndim=3] mapping, intersection
     cdef numpy.ndarray[numpy.double_t, ndim=2] matrix
     cdef numpy.ndarray[numpy.double_t, ndim=2] prob2map, intersection2map
 
-    bounds = pmvs.get_patch_bounds(patches)
-    (xmin, xmax), (ymin, ymax), (zmin, zmax) = bounds
+    logger.debug("Cleaning seeds")
+    useseeds = []
+    for seed in seeds:
+        if seed.frame not in projections:
+            logger.warning("Dropping seed {0} because no projection".format(seed.frame))
+        else:
+            useseeds.append(seed)
+    seeds = useseeds
 
-    logger.debug("x-bounds are: {0} thru {1}".format(xmin, xmax))
-    logger.debug("y-bounds are: {0} thru {1}".format(ymin, ymax))
-    logger.debug("z-bounds are: {0} thru {1}".format(zmin, zmax))
+    if not seeds:
+        raise RuntimeError("No seeds")
 
-    logger.debug("Building 3D density with delta={0}".format(delta))
-    xs = <int> ((xmax - xmin) / delta)
-    ys = <int> ((ymax - ymin) / delta)
-    zs = <int> ((zmax - zmin) / delta)
-    logger.debug("Trying to allocate {0}x{1}x{2}={3}".format(xs, ys, zs, 
-                                                             xs*ys*zs))
-    mapping = numpy.zeros((xs, ys, zs))
-    intersection = numpy.ones((xs, ys, zs))
-    logger.debug("Allocated")
-    normalizer = 0
-    for seednum, seed in enumerate(seeds):
-        logger.debug("Processing seed {0}".format(seednum))
-        matrix = projections[seed.frame].matrix
-        for xi in range(xs):
-            x = xi * delta + xmin
-            for yi in range(ys):
-                y = yi * delta + ymin
-                for zi in range(zs):
-                    z = zi * delta + zmin
-                    pn = matrix[2,0]*x + matrix[2,1]*y +matrix[2,2]*z + matrix[2,3]
-                    if pn < 0:
-                        intersection[xi, yi, zi] = 0
-                        continue
-                    px = (matrix[0,0]*x + matrix[0,1]*y +matrix[0,2]*z + matrix[0,3]) / pn
-                    py = (matrix[1,0]*x + matrix[1,1]*y +matrix[1,2]*z + matrix[1,3]) / pn
-                    if seed.xtl <= px and seed.xbr >= px and seed.ytl <= py and seed.ybr >= py:
-                        mapping[xi, yi, zi] += 1
-                        normalizer += 1
-                    else:
-                        intersection[xi, yi, zi] = 0
+    logger.debug("Using seeds in {0}".format(", ".join(str(x.frame) for x in seeds)))
 
-    if normalizer > 0:
-        mapping = mapping / normalizer
-        logger.debug("Normalizer is {0}".format(normalizer))
-    else:
-        raise RuntimeError("Normalizer is 0, probably no points mapped")
-    
-    cdef double sigma = 0.0001
-    normalizer = 0
-    for xi in range(xs):
-        for yi in range(ys):
-            for zi in range(zs):
-                e = exp(mapping[xi, yi, zi] / sigma)
-                normalizer += e
-                mapping[xi, yi, zi] = e
+    logger.debug("Voting in 3-space")
+    mapping = {}
+    intersection = set()
+    for patch in patches:
+        score = 0
+        for seed in seeds:
+            matrix = projections[seed.frame].matrix
+            x, y, z, _ = patch.realcoords
+            pn = matrix[2,0]*x + matrix[2,1]*y +matrix[2,2]*z + matrix[2,3]
+            if pn < 0:
+                continue
+            px = (matrix[0,0]*x + matrix[0,1]*y +matrix[0,2]*z + matrix[0,3]) / pn
+            py = (matrix[1,0]*x + matrix[1,1]*y +matrix[1,2]*z + matrix[1,3]) / pn
+            if seed.xtl <= px and seed.xbr >= px and seed.ytl <= py and seed.ybr >= py:
+                score += 1
+        if score > 0:
+            normalizer += score
+            mapping[x, y, z] = score
+        if score == len(seeds):
+            intersection.add((x, y, z))
 
     cdef int radius = 10
-    for frame, projection in enumerate(projections):
+    for frame, projection in sorted(projections.items()):
         logger.debug("Projecting into {0}".format(frame))
-        matrix = projections[frame].matrix
-        prob2map = numpy.zeros(video[frame].size)
-        intersection2map = numpy.zeros(video[frame].size)
+        matrix = projection.matrix
+        videoframe = video[frame]
+        prob2map = numpy.zeros(videoframe.size)
+        intersection2map = numpy.zeros(videoframe.size)
         width, height = video[frame].size
-        normalizer = 0
         points = []
-        for x from xmin <= x <= xmax by delta: 
-            for y from ymin <= y <= ymax by delta:
-                for z from zmin <= z <= zmax by delta:
-                    xi = <int> ((x - xmin) / delta)
-                    yi = <int> ((y - ymin) / delta)
-                    zi = <int> ((z - zmin) / delta)
-                    prob3d = mapping[xi, yi, zi]
-                    pn = matrix[2,0]*x + matrix[2,1]*y +matrix[2,2]*z + matrix[2,3]
-                    if pn < 0:
-                        continue
-                    pxi = <int>((matrix[0,0]*x+matrix[0,1]*y+matrix[0,2]*z+matrix[0,3])/pn)
-                    pyi = <int>((matrix[1,0]*x+matrix[1,1]*y+matrix[1,2]*z+matrix[1,3])/pn)
-                    for pxii in range(pxi - radius, pxi + radius + 1):
-                        for pyii in range(pyi - radius, pyi + radius + 1):
-                            if pxii < 0 or pyii < 0 or pxii >= width or pyii >= height:
-                                continue
-                            prob2map[pxii, pyii] += prob3d > 0
-                            normalizer += prob3d
-                            if intersection[xi, yi, zi]:
-                                intersection2map[pxii, pyii] = max(intersection2map[pxii, pyii], 1)
-        if normalizer > 0:
-            prob2map = prob2map / normalizer
+        normalizer2d = 0
 
-            logger.debug("Ploting")
+        for (x, y, z), prob3d in mapping.iteritems():
+            prob3d = prob3d / normalizer
+            pn = matrix[2,0]*x + matrix[2,1]*y +matrix[2,2]*z + matrix[2,3]
+            if pn < 0:
+                continue
+            pxi = <int>((matrix[0,0]*x+matrix[0,1]*y+matrix[0,2]*z+matrix[0,3])/pn)
+            pyi = <int>((matrix[1,0]*x+matrix[1,1]*y+matrix[1,2]*z+matrix[1,3])/pn)
+            for pxii in range(pxi - radius, pxi + radius + 1):
+                for pyii in range(pyi - radius, pyi + radius + 1):
+                    if pxii < 0 or pyii < 0 or pxii >= width or pyii >= height:
+                        continue
+                    prob2map[pxii, pyii] += prob3d
+                    normalizer2d += prob3d
+
+        for x, y, z in intersection:
+            pn = matrix[2,0]*x + matrix[2,1]*y +matrix[2,2]*z + matrix[2,3]
+            if pn < 0:
+                continue
+            pxi = <int>((matrix[0,0]*x+matrix[0,1]*y+matrix[0,2]*z+matrix[0,3])/pn)
+            pyi = <int>((matrix[1,0]*x+matrix[1,1]*y+matrix[1,2]*z+matrix[1,3])/pn)
+            for pxii in range(pxi - radius, pxi + radius + 1):
+                for pyii in range(pyi - radius, pyi + radius + 1):
+                    if pxii < 0 or pyii < 0 or pxii >= width or pyii >= height:
+                        continue
+                    intersection2map[pxii, pyii] = 1
+
+        if normalizer2d > 0:
+            prob2map = prob2map  / normalizer2d
+
             plt.subplot(221)
             plt.title("Prob of object")
             plt.set_cmap("gray")
@@ -136,10 +121,10 @@ def track(video, seeds, patches, projections, double delta = 10e-3):
         else:
             logger.warning("Normalizer for frame {0} is 0".format(frame))
 
-    logger.debug("Writing 3D probability map")
-    plywriter.write(open("mapping.ply", "w"), mapping,
-        condition = plywriter.filterlower, bounds = bounds)
+    #logger.debug("Writing 3D probability map")
+    #plywriter.write(open("mapping.ply", "w"), mapping,
+    #    condition = plywriter.filterlower, bounds = pmvs.get_patch_bounds(patches))
 
-    logger.debug("Writing intersection map")
-    plywriter.write(open("intersection.ply", "w"), intersection,
-        condition = plywriter.filterlower, bounds = bounds)
+   # logger.debug("Writing intersection map")
+   # plywriter.write(open("intersection.ply", "w"), intersection,
+   #     condition = plywriter.filterlower, bounds = bounds)
