@@ -23,9 +23,9 @@ cdef class Box(object):
         Initializes the bounding box.
         """
         if xbr <= xtl:
-            raise TypeError("xbr must be > xtl")
+            raise TypeError("xbr ({0}) must be > xtl ({1})".format(xbr, xtl))
         elif ybr <= ytl:
-            raise TypeError("ybr must be > ytl")
+            raise TypeError("ybr ({0}) must be > ytl ({1})".format(ybr, ytl))
         elif xtl < 0:
             raise TypeError("xtl must be nonnegative")
         elif ytl < 0:
@@ -98,6 +98,10 @@ cdef class Box(object):
 
         uni = self.area + oth.area - xdiff * ydiff
         return float(xdiff * ydiff) / float(uni)
+
+    def contains(self, point):
+        return (self.xtl >= point[0] and self.xbr <= point[0] and
+                self.ytl >= point[1] and self.ybr <= point[1])
 
     def resize(self, xratio, yratio = None):
         """
@@ -262,6 +266,8 @@ class frameiterator(object):
         return self.length
 
     def __getitem__(self, frame):
+        if frame < self.start:
+            raise RuntimeError("Frame {0} is before start of video".format(frame))
         return Image.open(self.path((frame * self.skip) + self.start))
 
     def __iter__(self):

@@ -80,8 +80,7 @@ class Patch(object):
                                 self.visibles, self.disagrees))
 
     def project(self, projection):
-        a = numpy.dot(projection.matrix, self.realcoords)
-        return (a / a[2])[0:2]
+        return projection.project(self.realcoords)
 
     def projectall(self, projections, disagrees = True):
         if disagrees:
@@ -93,10 +92,30 @@ class Patch(object):
             mapping[point] = self.project(projections[point])
         return mapping
 
+def get_patch_bounds(patches):
+    xmin = ymin = zmin = float("+infinity")
+    xmax = ymax = zmax = float("-infinity")
+
+    for patch in patches:
+        x, y, z, _ = patch.realcoords
+
+        xmin = min(xmin, x)
+        xmax = max(xmax, x)
+
+        ymin = min(ymin, y)
+        ymax = max(ymax, y)
+
+        zmin = min(zmin, z)
+        zmax = max(zmax, z)
+
+    return ((xmin, xmax), (ymin, ymax), (zmin, zmax))
+
 def read_projections(root):
     """
     Reads in all the projection information stored inside txt files.
     """
+    frames = open(os.path.join(root, "..", "list.rd.txt"))
+    frames = iter(int(x[2:-5]) for x in frames)
     projections = {}
     for file in os.listdir(root):
         if not file.endswith(".txt"):
@@ -106,15 +125,18 @@ def read_projections(root):
                 raise RuntimeError("expceted CONTOUR header")
             read = lambda x: [float(y) for y in x.readline().strip().split()]
             m = numpy.array([read(data), read(data), read(data)])
-            name, _ = file.split(".")
-            name = float(name)
-            projections[name] = Projection(name, m)
+            frame = frames.next()
+            projections[frame] = Projection(m, frame)
     return projections
 
 class Projection(object):
-    def __init__(self, id, matrix):
-        self.id = id
+    def __init__(self, matrix, frame):
         self.matrix = matrix
+        self.frame = frame
+
+    def project(self, real):
+        a = numpy.dot(self.matrix, real) 
+        return (a / a[2])[0:2]
 
 class RealWorldMap(object):
     def __init__(self, patches, projections):
@@ -184,7 +206,9 @@ if __name__ == "__main__":
     logging.basicConfig(level = logging.DEBUG)
 
     patches, projections = read("/csail/vision-videolabelme/databases/"
-                                "video_adapt/home_ac_a/frames/0/bundler/pmvs")
+                                "video_adapt/demos/bottle_table/bundler/pmvs")
+
+    print get_patch_bounds(patches)
 
     mapping = RealWorldMap(patches, projections)
 

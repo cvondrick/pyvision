@@ -12,7 +12,7 @@ import logging
 cimport numpy
 from vision cimport annotations
 
-cdef int debug = 0
+cdef int debug = 1
 
 if debug:
     import pylab
