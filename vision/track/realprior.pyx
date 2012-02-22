@@ -15,14 +15,12 @@ cdef extern from "math.h":
 
 class ThreeD(object):
     def __init__(self, video, seeds, patches, projections):
-        """
-        This tracker uses a 3D reconstruction of a scene in order to
-        localize objects throughout a video sequence.
-        """
         self.video = video
         self.seeds = seeds
         self.patches = patches
         self.projections = projections
+
+        self.build()
 
     def build(self):
         cdef double x, y, z
