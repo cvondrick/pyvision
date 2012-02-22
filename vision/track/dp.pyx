@@ -21,11 +21,12 @@ logger = logging.getLogger("vision.track.dp")
 
 def fill(givens, images, last = None, 
          pairwisecost = 0.001, upperthreshold = 10, lowerthreshold = -100,
-         skip = 3, rgbbin = 8, hogbin = 8, c = 1, pool = None):
+         skip = 3, rgbbin = 8, hogbin = 8, c = 1, realprior = None, pool = None):
 
     givens.sort(key = lambda x: x.frame)
 
-    model = PathModel(images, givens, rgbbin = rgbbin, hogbin = hogbin, c = c)
+    model = PathModel(images, givens, rgbbin = rgbbin, hogbin = hogbin, c = c,
+                      realprior = realprior)
     
     fullpath = []
     for x, y in zip(givens, givens[1:]):
@@ -180,18 +181,7 @@ def scoreframe(workorder):
 
     logger.debug("Scoring frame {0}".format(frame))
 
-    # resize image to so box has 'dim' in the resized space
-    image = images[frame]
-    width, height = image.size
-    wr = model.dim[0] / <double>(start.width)
-    hr = model.dim[1] / <double>(start.height)
-    rimage = image.resize((int(ceil(width * wr)), int(ceil(height * hr))), 2)
-
-    cost = convolution.hogrgbmean(rimage, model.dim,
-                              model.hogweights(),
-                              model.rgbweights(),
-    #                          rgbbin = model.rgbbin,
-                              hogbin = model.hogbin)
+    cost = model.scoreframe(images[frame], start.size)
 
     if debug:
         pylab.set_cmap("gray")

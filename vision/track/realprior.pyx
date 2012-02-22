@@ -14,24 +14,23 @@ cdef extern from "math.h":
     float exp(float n)
 
 class ThreeD(object):
-    def __init__(self, video, seeds, patches, projections):
+    def __init__(self, video, patches, projections):
         self.video = video
-        self.seeds = seeds
         self.patches = patches
         self.projections = projections
 
-        self.build()
-
-    def build(self):
+    def build(self, seeds):
         cdef double x, y, z
         cdef double normalizer, score 
         cdef double px, py, pn
         cdef annotations.Box seed
         cdef numpy.ndarray[numpy.double_t, ndim=2] matrix
 
-        logger.info("Cleaning seeds")
+        logger.info("Building 3D model")
+
+        logger.debug("Cleaning seeds")
         useseeds = []
-        for seed in self.seeds:
+        for seed in seeds:
             if seed.frame not in self.projections:
                 logger.warning("Dropping seed {0} because no projection".format(seed.frame))
             else:
@@ -43,7 +42,7 @@ class ThreeD(object):
 
         logger.info("Using seeds in {0}".format(", ".join(str(x.frame) for x in seeds)))
 
-        logger.info("Voting in 3-space")
+        logger.debug("Voting in 3-space")
         self.mapping = {}
         for patch in self.patches:
             score = 0
@@ -62,7 +61,9 @@ class ThreeD(object):
                 self.mapping[x, y, z] = score
         self.normalizer = normalizer
 
-    def score(self, frame, int radius = 10):
+        return self
+
+    def scorelocations(self, frame, int radius = 10):
         cdef numpy.ndarray[numpy.double_t, ndim=2] prob2map
         cdef numpy.ndarray[numpy.double_t, ndim=2] matrix
         cdef int pxi, pxii, pyi, pyii

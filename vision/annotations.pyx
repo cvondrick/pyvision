@@ -55,6 +55,10 @@ cdef class Box(object):
         return self.ybr - self.ytl
 
     @property
+    def size(self):
+        return self.width, self.height
+
+    @property
     def center(self):
         """
         Calculates the center of the bounding box.

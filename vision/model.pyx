@@ -4,6 +4,8 @@ import features
 import random
 import logging
 import numpy
+import convolution
+from math import ceil
 
 logger = logging.getLogger("vision.model")
 
@@ -22,7 +24,8 @@ class PathModel(object):
     """
 
     def __init__(self, images, givens, dim = (40,40), hogbin = 8,
-                 rgbbin = 8, bgskip = 2, bgsize = 5e4, c = 0.000001):
+                 rgbbin = 8, bgskip = 2, bgsize = 5e4, c = 0.000001,
+                 realprior = None):
         """
         Constructs a path based model from the given path.
         """
@@ -45,6 +48,10 @@ class PathModel(object):
         self.weights, self.bias = model.weights, model.bias
 
         logger.info("Weights learned with bias {0}".format(self.bias))
+
+        self.realprior = realprior
+        if self.realprior:
+            self.realprior.build(givens)
 
     def extractpath(self, images, givens, dim, 
                     int hogbin, int rgbbin, int bgskip, int bgsize):
@@ -145,3 +152,18 @@ class PathModel(object):
         x = self.dim[0]/self.hogbin
         y = self.dim[1]/self.hogbin
         return self.weights[x*y*13:]
+
+    def scoreframe(self, image, size):
+        # resize image to so box has 'dim' in the resized space
+        width, height = image.size
+        wr = self.dim[0] / <double>(size[0])
+        hr = self.dim[1] / <double>(size[1])
+        rimage = image.resize((int(ceil(width * wr)), int(ceil(height * hr))), 2)
+
+        cost = convolution.hogrgbmean(rimage, self.dim,
+                                self.hogweights(),
+                                self.rgbweights(),
+        #                          rgbbin = self.rgbbin,
+                                hogbin = self.hogbin)
+
+        return cost
