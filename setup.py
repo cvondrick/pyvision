@@ -43,7 +43,7 @@ ext_modules = [
     Extension("vision.alearn.marginals", ["vision/alearn/marginals.pyx"]),
     Extension("vision.track.dp", ["vision/track/dp.pyx",
                                   "vision/track/dp.pxd"]),
-    Extension("vision.track.realcoords", ["vision/track/realcoords.pyx"]),
+    Extension("vision.track.realprior", ["vision/track/realprior.pyx"]),
     Extension("vision.track.pairwise", ["vision/track/pairwise.pyx"]),
     Extension("vision.svm", ["vision/svm.pyx"],
         extra_objects = [root + "liblinear/linear.o",
