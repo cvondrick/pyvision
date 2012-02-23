@@ -8,14 +8,14 @@ from memo import memo
 
 logger = logging.getLogger("vision.reconstruction.pmvs")
 
-def read(root):
+def read(root, start = 0):
     """
     Returns a reconstruction object that has all the important information in it
     that is necessary to reconstruct the scene.
     """
     logger.debug("Read {0}".format(root))
-    patches = read_patches(open(find_patch_file(root))) 
-    projections = read_projections("{0}/txt/".format(root))
+    patches = read_patches(open(find_patch_file(root)), start) 
+    projections = read_projections("{0}/txt/".format(root), start)
 
     return patches, projections
 
@@ -29,7 +29,7 @@ def find_patch_file(root):
             return os.path.join(root, file)
     raise RuntimeError("No patch file found in {0}".format(root))
 
-def read_patches(data):
+def read_patches(data, start = 0):
     """
     Reads a PMVS patch file, typically called something like option-0000.patch. 
     Returns an array of patches.
@@ -57,11 +57,11 @@ def read_patches(data):
 
         data.readline()
         line = data.readline()
-        visibles = [int(x) for x in line.split()]
+        visibles = [int(x) - start for x in line.split()]
 
         data.readline()
         line = data.readline().strip()
-        disagrees = [int(x) for x in line.split()]
+        disagrees = [int(x) - start for x in line.split()]
 
         patches.append(Patch(realcoords, normal, score, visibles, disagrees))
 
@@ -110,7 +110,7 @@ def get_patch_bounds(patches):
 
     return ((xmin, xmax), (ymin, ymax), (zmin, zmax))
 
-def read_projections(root):
+def read_projections(root, start = 0):
     """
     Reads in all the projection information stored inside txt files.
     """
@@ -126,6 +126,7 @@ def read_projections(root):
             read = lambda x: [float(y) for y in x.readline().strip().split()]
             m = numpy.array([read(data), read(data), read(data)])
             frame = frames.next()
+            frame -= start
             projections[frame] = Projection(m, frame)
     return projections
 

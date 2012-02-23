@@ -263,19 +263,19 @@ class frameiterator(object):
             counter = 0
             while True:
                 if not os.path.exists(self.path(i)):
-                    self.length = counter
+                    self.length = counter - 1
                     break
                 counter += 1
                 i += self.skip
         return self.length
 
     def __getitem__(self, frame):
-        if frame < self.start:
+        if frame < 0:
             raise RuntimeError("Frame {0} is before start of video".format(frame))
         return Image.open(self.path((frame * self.skip) + self.start))
 
     def __iter__(self):
-        i = self.start
+        i = 0
         while True:
             try:
                 yield self[i]

@@ -32,13 +32,14 @@ class ThreeD(object):
         useseeds = []
         for seed in seeds:
             if seed.frame not in self.projections:
-                logger.warning("Dropping seed {0} because no projection".format(seed.frame))
+                logger.warning("Dropping seed {0} because "
+                               "no projection".format(seed.frame))
             else:
                 useseeds.append(seed)
         seeds = useseeds
 
         if not seeds:
-            raise RuntimeError("No seeds")
+            logger.warning("No seeds")
 
         logger.info("Using seeds in {0}".format(", ".join(str(x.frame) for x in seeds)))
 
