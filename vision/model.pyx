@@ -25,7 +25,7 @@ class PathModel(object):
 
     def __init__(self, images, givens, dim = (40,40), hogbin = 8,
                  rgbbin = 8, bgskip = 2, bgsize = 5e4, c = 0.000001,
-                 realprior = None):
+                 realprior = None, realpriorweight = 1):
         """
         Constructs a path based model from the given path.
         """
@@ -50,6 +50,7 @@ class PathModel(object):
         logger.info("Weights learned with bias {0}".format(self.bias))
 
         self.realprior = realprior
+        self.realpriorweight = realpriorweight
         if self.realprior:
             self.realprior.build(givens)
 
@@ -153,9 +154,15 @@ class PathModel(object):
         y = self.dim[1]/self.hogbin
         return self.weights[x*y*13:]
 
-    def scoreframe(self, image, size):
+    def scoreframe(self, image, size, frame = None):
         # resize image to so box has 'dim' in the resized space
+        cdef int i, j, width, height, dim0, dim1
+        cdef double rpw = self.realpriorweight
+        cdef double probsum = 0
+        cdef numpy.ndarray[ndim=2, dtype=numpy.double_t] proj
+
         width, height = image.size
+        dim0, dim1 = self.dim
         wr = self.dim[0] / <double>(size[0])
         hr = self.dim[1] / <double>(size[1])
         rimage = image.resize((int(ceil(width * wr)), int(ceil(height * hr))), 2)
@@ -163,7 +170,16 @@ class PathModel(object):
         cost = convolution.hogrgbmean(rimage, self.dim,
                                 self.hogweights(),
                                 self.rgbweights(),
-        #                          rgbbin = self.rgbbin,
                                 hogbin = self.hogbin)
 
+        if self.realprior and frame and self.realprior.hasprojection(frame):
+            proj = self.realprior.scorelocations(frame)
+            proj = convolution.sumprob(proj)
+            for i from 0 <= i < <int>(width * wr - dim0):
+                for j from 0 <= j < <int>(height * hr - dim1):
+                    probsum = proj[<int>(i / wr), <int>(j / hr)]
+                    probsum += proj[<int>((i + dim0) / wr), <int>((j + dim1) / hr)]
+                    probsum -= proj[<int>(i / wr), <int>((j + dim1) / hr)]
+                    probsum -= proj[<int>((i + dim0) / wr), <int>(j / hr)]
+                    cost[i, j] += rpw * probsum
         return cost

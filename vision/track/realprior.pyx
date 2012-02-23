@@ -63,6 +63,9 @@ class ThreeD(object):
 
         return self
 
+    def hasprojection(self, frame):
+        return frame in self.projections
+
     def scorelocations(self, frame, int radius = 10):
         cdef numpy.ndarray[numpy.double_t, ndim=2] prob2map
         cdef numpy.ndarray[numpy.double_t, ndim=2] matrix
