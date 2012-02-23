@@ -16,7 +16,7 @@ cdef class Box(object):
     @cython.profile(False)
     def __init__(self, int xtl, int ytl, int xbr, int ybr,
                  int frame = 0, int lost = 0, int occluded = 0,
-                 int generated = 0, attributes = None):
+                 int generated = 0, double score = 0, attributes = None):
         """
         Initializes the bounding box.
         """
@@ -37,6 +37,7 @@ cdef class Box(object):
         self.lost = lost
         self.occluded = occluded
         self.generated = generated
+        self.score = score
 
         if attributes is None:
             attributes = []
@@ -107,6 +108,7 @@ cdef class Box(object):
                    self.xtl + <int> (self.width * xratio),
                    self.ytl + <int> (self.height * yratio),
                    self.frame, self.lost, self.occluded, self.generated,
+                   self.score,
                    list(self.attributes))
 
     def transform(self, xratio, yratio = None):
@@ -129,6 +131,7 @@ cdef class Box(object):
 
         return Box(xtl, ytl, xbr, ybr,
                    self.frame, self.lost, self.occluded, self.generated,
+                   self.score,
                    list(self.attributes))
 
     def average(self, other):
@@ -140,15 +143,17 @@ cdef class Box(object):
                    self.lost or other.lost,
                    self.occluded or other.occluded,
                    self.generated,
+                   self.score,
                    list(self.attributes))
 
     def __str__(self):
         """
         Returns a string representation.
         """
-        return "Box({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8})".format(
+        return "Box({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9})".format(
             self.xtl, self.ytl, self.xbr, self.ybr,
             self.frame, self.lost, self.occluded, self.generated,
+            self.score,
             repr(self.attributes))
 
     def __repr__(self):
