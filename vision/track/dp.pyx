@@ -12,7 +12,7 @@ import logging
 cimport numpy
 from vision cimport annotations
 
-cdef int debug = 0
+cdef int debug = 1
 
 if debug:
     import pylab
@@ -181,7 +181,7 @@ def scoreframe(workorder):
 
     logger.debug("Scoring frame {0}".format(frame))
 
-    cost = model.scoreframe(images[frame], start.size)
+    cost = model.scoreframe(images[frame], start.size, frame)
 
     if debug:
         pylab.set_cmap("gray")

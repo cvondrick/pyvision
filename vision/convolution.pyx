@@ -22,7 +22,7 @@ cpdef sumprob(probmap, filtersize):
     # initialize some useful stuff
     cdef int width = probmap.shape[0], height = probmap.shape[1], i = 0, j = 0
     cdef int filterwidth = filtersize[0], filterheight = filtersize[1]
-    cdef np.ndarray[np.double_t, ndim=3] data = probmap
+    cdef np.ndarray[np.double_t, ndim=2] data = probmap
     cdef np.ndarray[np.double_t, ndim=2] sumarea = np.zeros((width, height))
     cdef double local = 0
     for i from 0 <= i < width:
@@ -166,7 +166,7 @@ cpdef rgbmean(image, filtersize, rgbfilter):
     # efficiently precompute integral rgb score image
     cdef np.ndarray[np.double_t, ndim=2] sumrgb = np.zeros((width, height))
     cdef np.ndarray[ndim=1, dtype=np.double_t] rgbfiltert = rgbfilter
-    cdef double localrgbscore
+    cdef double localrgbscore, r, g, b
     for i from 0 <= i < width:
         for j from 0 <= j < height:
             r = data[j, i, 0] / <double>(255)

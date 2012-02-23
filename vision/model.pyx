@@ -174,12 +174,12 @@ class PathModel(object):
 
         if self.realprior and frame and self.realprior.hasprojection(frame):
             proj = self.realprior.scorelocations(frame)
-            proj = convolution.sumprob(proj)
+            proj = convolution.sumprob(proj, self.dim)
             for i from 0 <= i < <int>(width * wr - dim0):
                 for j from 0 <= j < <int>(height * hr - dim1):
                     probsum = proj[<int>(i / wr), <int>(j / hr)]
                     probsum += proj[<int>((i + dim0) / wr), <int>((j + dim1) / hr)]
                     probsum -= proj[<int>(i / wr), <int>((j + dim1) / hr)]
                     probsum -= proj[<int>((i + dim0) / wr), <int>(j / hr)]
-                    cost[i, j] += rpw * probsum
+                    cost[i, j] += cost[i, j] - rpw * probsum
         return cost
