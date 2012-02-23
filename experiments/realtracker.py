@@ -29,7 +29,7 @@ seed6 = vision.Box(199, 54, 199 + 60, 54 + 142, 210)
 badseed = vision.Box(358, 12, 358 + 33, 12 + 25, 150)
 seeds = [seed, seed2,  seed5, seed6]
 
-predicted = vision.track.dp.fill(seeds, video, last = len(video), pool = pool, hogbin = 4, pairwisecost = 0.000000001, c = 0.01, realprior = ThreeD(video, patches, projections))
+predicted = vision.track.dp.fill(seeds, video, last = len(video), pool = pool, hogbin = 4, pairwisecost = 0.1, c = 0.01, realprior = ThreeD(video, patches, projections))
 
 
 #path = ("/csail/vision-videolabelme/databases/"
