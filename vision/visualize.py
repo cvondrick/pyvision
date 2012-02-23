@@ -67,7 +67,7 @@ def highlight_path(images, path, color = colors[0], width = defaultwidth,
     Highlights a path across many images. The images must be indexable
     by the frame. Produces a generator.
     """
-    logger.debug("Visualize path of length {0}".format(len(path)))
+    logger.info("Visualize path of length {0}".format(len(path)))
     for box in path:
         try:
             lost = box.lost
@@ -85,7 +85,7 @@ def highlight_paths(images, paths, colors = colors, width = defaultwidth,
     by the frame. Produces a generator.
     """
 
-    logger.debug("Visualize {0} paths".format(len(paths)))
+    logger.info("Visualize {0} paths".format(len(paths)))
 
     boxmap = {}
     paths = zip(paths, itertools.cycle(colors))

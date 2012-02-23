@@ -25,7 +25,7 @@ class PathModel(object):
 
     def __init__(self, images, givens, dim = (40,40), hogbin = 8,
                  rgbbin = 8, bgskip = 2, bgsize = 5e4, c = 0.000001,
-                 realprior = None, realpriorweight = 1):
+                 realprior = None, realpriorweight = 1000):
         """
         Constructs a path based model from the given path.
         """
