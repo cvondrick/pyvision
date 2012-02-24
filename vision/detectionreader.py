@@ -4,9 +4,6 @@ from scipy.io import loadmat
 def exemplarsvm(filename):
     data = loadmat(filename)
     data = data['ds']
-
-    boxes = []
-
     for frame, detections in enumerate(data):
         detections = detections[0][0,0][0]
         for i in range(detections.shape[0]):
