@@ -29,7 +29,7 @@ seeds = [seed, seed2,  seed5, seed6]
 
 detections = vision.detectionreader.exemplarsvm('/csail/vision-videolabelme/databases/video_adapt/demos/bottle_table/pedro-pascal-bottle.mat')
 
-prior = ThreeD(video, patches, projections)
+prior = ThreeD(video, patches, projections, sigma = 0.1)
 prior.build(detections)
 
 import pylab, numpy, Image

@@ -14,12 +14,12 @@ cdef extern from "math.h":
     float exp(float n)
 
 class ThreeD(object):
-    def __init__(self, video, patches, projections):
+    def __init__(self, video, patches, projections, sigma = 1):
         self.video = video
         self.patches = patches
         self.projections = projections
         self.built = False
-        self.sigma = 1
+        self.sigma = sigma
 
     def build(self, seeds, forcescore = None):
         cdef double x, y, z
@@ -69,7 +69,6 @@ class ThreeD(object):
 
         if self.normalizer == 0:
             logger.warning("Normalizer in 3D is 0")
-
         return self
 
     def hasprojection(self, frame):
