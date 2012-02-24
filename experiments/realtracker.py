@@ -32,7 +32,7 @@ seeds = [seed, seed2,  seed5, seed6]
 
 detections = vision.detectionreader.exemplarsvm('/csail/vision-videolabelme/databases/video_adapt/demos/bottle_table/pedro-pascal-bottle.mat')
 realprior = ThreeD(video, patches, projections).build(detections)
-predicted = vision.track.dp.fill(seeds, video, last = len(video), pool = pool, hogbin = 4, pairwisecost = 0.1, c = 0.01, realprior = realprior)
+predicted = vision.track.dp.fill(seeds, video, last = len(video), pool = pool, hogbin = 4, pairwisecost = 0.01, c = 0.01, realprior = realprior)
 
 #path = ("/csail/vision-videolabelme/databases/"
 #        "video_adapt/home_ac_a/frames/5/bundler-5")

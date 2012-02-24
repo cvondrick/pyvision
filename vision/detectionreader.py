@@ -19,5 +19,5 @@ def exemplarsvm(filename):
             score = d[-1]
             yield Box(xtl, ytl, xbr, ybr, frame, score = score)
 
-boxes = exemplarsvm('/csail/vision-videolabelme/databases/video_adapt/demos/bottle_table/pedro-pascal-bottle.mat')
-print boxes.next()
+#boxes = exemplarsvm('/csail/vision-videolabelme/databases/video_adapt/demos/bottle_table/pedro-pascal-bottle.mat')
+#print boxes.next()

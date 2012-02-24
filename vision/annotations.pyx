@@ -18,7 +18,7 @@ cdef class Box(object):
     def __init__(self, int xtl, int ytl, int xbr, int ybr,
                  int frame = 0, int lost = 0, int occluded = 0,
                  image = None, label = None,
-                 int generated = 0, double score = 0, attributes = None):
+                 int generated = 0, double score = 0.0, attributes = None):
         """
         Initializes the bounding box.
         """
@@ -205,7 +205,7 @@ cdef class Box(object):
         return (Box, (self.xtl, self.ytl, self.xbr, self.ybr,
             self.frame, self.lost, self.occluded,
             self.image, self.label,
-            self.generated, list(self.attributes)))
+            self.generated, self.score, list(self.attributes)))
 
     def __getitem__(self, a):
         """
@@ -214,7 +214,7 @@ cdef class Box(object):
         tuple = (self.xtl, self.ytl, self.xbr, self.ybr,
                  self.frame, self.lost, self.occluded,
                  self.image, self.label,
-                 self.generated,
+                 self.generated, self.score,
                  list(self.attributes))
         return tuple[a]
 

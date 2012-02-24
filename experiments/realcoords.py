@@ -1,11 +1,9 @@
-from vision.track.realcoords import *
+from vision.track.realprior import *
+import vision.detectionreader
 import vision.drawer
 import os.path
 from vision import visualize
 import random
-import multiprocessing
-
-pool = multiprocessing.Pool(multiprocessing.cpu_count())
 
 import vision.track.dp
 
@@ -15,10 +13,10 @@ path = ("/csail/vision-videolabelme/databases/"
         "video_adapt/home_ac_a/frames/0/bundler")
 path = "/csail/vision-videolabelme/databases/video_adapt/demos/bottle_table/bundler"
 
-video = vision.flatframeiterator(path + "/..")
+video = vision.flatframeiterator(path + "/..", start = 1)
 
 root = os.path.join(path, "pmvs")
-patches, projections = pmvs.read(root)
+patches, projections = pmvs.read(root, start = 1)
 
 seed = vision.Box(173, 30, 173 + 51, 30 + 137, 0 + 1)
 seed2 = vision.Box(256, 49, 256 + 58, 49 + 117, 200 + 1)
@@ -28,22 +26,23 @@ seed5 = vision.Box(181, 42, 181 + 51, 42 + 106, 406)
 seed6 = vision.Box(199, 54, 199 + 60, 54 + 142, 211)
 badseed = vision.Box(358, 12, 358 + 33, 12 + 25, 150 + 1)
 seeds = [seed, seed2,  seed5, seed6]
-predicted = track(video, seeds, patches, projections)
 
-predicted = vision.track.dp.fill(predicted, video, last = len(video), pool = pool, hogbin = 4, c = 0.001)
+detections = vision.detectionreader.exemplarsvm('/csail/vision-videolabelme/databases/video_adapt/demos/bottle_table/pedro-pascal-bottle.mat')
 
-justdp = vision.track.dp.fill(seeds, video, last = len(video), pool = pool, hogbin = 4, c = .1)
+prior = ThreeD(video, patches, projections)
+prior.build(detections)
 
-#path = ("/csail/vision-videolabelme/databases/"
-#        "video_adapt/home_ac_a/frames/5/bundler-5")
-#
-#video = vision.flatframeiterator(path, 1, 5)
-#
-#root = os.path.join(path, "pmvs")
-#patches, projections = pmvs.read(root)
-#
-#seed = vision.Box(55, 39, 55 + 270, 39 + 136, 145)
-#predicted = track(video, [seed], patches, projections)
-#
-vit = visualize.highlight_paths(video, [predicted, justdp])
-visualize.save(vit, lambda x: "tmp/path{0}.jpg".format(x))
+import pylab, numpy, Image
+for frame, nd in prior.scoreall():
+    print frame
+
+    pylab.subplot(211)
+    pylab.set_cmap("gray")
+    pylab.title("min={0}, max={1}".format(nd.min(), nd.max()))
+    pylab.imshow(nd.transpose())
+
+    pylab.subplot(212)
+    pylab.imshow(numpy.asarray(video[frame]))
+
+    pylab.savefig("tmp/out{0}.png".format(frame))
+    pylab.clf()
