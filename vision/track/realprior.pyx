@@ -72,6 +72,24 @@ class ThreeD(object):
 
         return self
 
+    def estimate(self):
+        if not self.built:
+            raise RuntimeError("ThreeD prior must be built first")
+        logger.info("Estimating shape")
+
+        cdef double mux, muy, muz, x, y, z, score
+        for (x, y, z), score in self.mapping.iteritems():
+            mux += x * score
+            muy += y * score
+            muz += z * score
+        mux = mux / self.normalizer
+        muy = muy / self.normalizer
+        muz = muz / self.normalizer
+
+        print mux, muy, muz
+
+        return self
+
     def hasprojection(self, frame):
         return frame in self.projections
 

@@ -21,18 +21,23 @@ video = vision.flatframeiterator(path + "/..", start = 1)
 root = os.path.join(path, "pmvs")
 patches, projections = pmvs.read(root, start = 1)
 
-seed = vision.Box(173, 30, 173 + 51, 30 + 137, 0)
-seed2 = vision.Box(256, 49, 256 + 58, 49 + 117, 200)
-seed3 = vision.Box(173, 88, 173 + 67, 88 + 89, 600)
-seed4 = vision.Box(156, 57, 156 + 71, 57 + 115, 900)
-seed5 = vision.Box(181, 42, 181 + 51, 42 + 106, 405)
-seed6 = vision.Box(199, 54, 199 + 60, 54 + 142, 210)
-badseed = vision.Box(358, 12, 358 + 33, 12 + 25, 150)
-seeds = [seed, seed2, seed5, seed6]
+#seed = vision.Box(173, 30, 173 + 51, 30 + 137, 0)
+#seed2 = vision.Box(256, 49, 256 + 58, 49 + 117, 200)
+#seed3 = vision.Box(173, 88, 173 + 67, 88 + 89, 600)
+#seed4 = vision.Box(156, 57, 156 + 71, 57 + 115, 900)
+#seed5 = vision.Box(181, 42, 181 + 51, 42 + 106, 405)
+#seed6 = vision.Box(199, 54, 199 + 60, 54 + 142, 210)
+#badseed = vision.Box(358, 12, 358 + 33, 12 + 25, 150)
+#seeds = [seed, seed2, seed5, seed6]
 
 detections = vision.detectionreader.exemplarsvm('/csail/vision-videolabelme/databases/video_adapt/demos/bottle_table/pedro-pascal-bottle.mat')
+detections = list(detections)
+detections.sort(key = lambda x: -x.score)
 realprior = ThreeD(video, patches, projections).build(detections)
-predicted = vision.track.dp.fill(seeds, video, last = len(video), pool = pool, hogbin = 4, pairwisecost = 0.01, c = 0.1, realprior = realprior)
+
+print detections[0].frame
+
+predicted = vision.track.dp.fill([detections[0]], video, last = len(video), pool = pool, hogbin = 4, pairwisecost = 0.01, c = 0.1, realprior = realprior)
 
 #path = ("/csail/vision-videolabelme/databases/"
 #        "video_adapt/home_ac_a/frames/5/bundler-5")

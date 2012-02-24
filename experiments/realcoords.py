@@ -31,18 +31,19 @@ detections = vision.detectionreader.exemplarsvm('/csail/vision-videolabelme/data
 
 prior = ThreeD(video, patches, projections)
 prior.build(detections)
+prior.estimate()
 
-import pylab, numpy, Image
-for frame, nd in prior.scoreall():
-    print frame
-
-    pylab.subplot(211)
-    pylab.set_cmap("gray")
-    pylab.title("min={0}, max={1}".format(nd.min(), nd.max()))
-    pylab.imshow(nd.transpose())
-
-    pylab.subplot(212)
-    pylab.imshow(numpy.asarray(video[frame]))
-
-    pylab.savefig("tmp/out{0}.png".format(frame))
-    pylab.clf()
+#import pylab, numpy, Image
+#for frame, nd in prior.scoreall():
+#    print frame
+#
+#    pylab.subplot(211)
+#    pylab.set_cmap("gray")
+#    pylab.title("min={0}, max={1}".format(nd.min(), nd.max()))
+#    pylab.imshow(nd.transpose())
+#
+#    pylab.subplot(212)
+#    pylab.imshow(numpy.asarray(video[frame]))
+#
+#    pylab.savefig("tmp/out{0}.png".format(frame))
+#    pylab.clf()
