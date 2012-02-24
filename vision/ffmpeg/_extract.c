@@ -149,13 +149,13 @@ int read_frame(struct video_stream *stream, unsigned char **output)
         {
             //avcodec_decode_video(codec_context, frame_reg, &frame_finished, packet.data, packet.size);
 
-        AVPacket avpkt; 
-	av_init_packet(&avpkt); 
-	avpkt.data = packet.data; 
-	avpkt.size = packet.size; 
- 	avpkt.flags = AV_PKT_FLAG_KEY; 
- 	avcodec_decode_video2(codec_context, 
- 	frame_reg, &frame_finished, &avpkt); 
+            AVPacket avpkt; 
+            av_init_packet(&avpkt); 
+            avpkt.data = packet.data; 
+            avpkt.size = packet.size; 
+            avpkt.flags = AV_PKT_FLAG_KEY; 
+            avcodec_decode_video2(codec_context, 
+            frame_reg, &frame_finished, &avpkt); 
 
             if (frame_finished)
             {

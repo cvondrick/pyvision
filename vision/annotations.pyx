@@ -18,7 +18,7 @@ cdef class Box(object):
     def __init__(self, int xtl, int ytl, int xbr, int ybr,
                  int frame = 0, int lost = 0, int occluded = 0,
                  image = None, label = None,
-                 int generated = 0, attributes = None):
+                 int generated = 0, double score = 0, attributes = None):
         """
         Initializes the bounding box.
         """
@@ -41,6 +41,7 @@ cdef class Box(object):
         self.label = label
         self.occluded = occluded
         self.generated = generated
+        self.score = score
 
         if attributes is None:
             attributes = []
@@ -119,8 +120,8 @@ cdef class Box(object):
                    self.xtl + <int> (self.width * xratio),
                    self.ytl + <int> (self.height * yratio),
                    self.frame, self.lost, self.occluded,
-                   self.image, self.label,
-                   self.generated, list(self.attributes))
+                   self.image, self.label, self.generated,
+                   self.score, list(self.attributes))
 
     def transform(self, xratio, yratio = None):
         """
@@ -143,7 +144,8 @@ cdef class Box(object):
         return Box(xtl, ytl, xbr, ybr,
                    self.frame, self.lost, self.occluded,
                    self.image, self.label,
-                   self.generated, list(self.attributes))
+                   self.generated, self.score,
+                   list(self.attributes))
 
     def average(self, other):
         return Box((self.xtl + other.xtl) / 2,
@@ -155,17 +157,18 @@ cdef class Box(object):
                    self.occluded or other.occluded,
                    self.image, self.label,
                    self.generated,
+                   self.score,
                    list(self.attributes))
 
     def __str__(self):
         """
         Returns a string representation.
         """
-        return "Box({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10})".format(
+        return "Box({0}, {1}, {2}, {3}, {4}, {5}, {6}, {7}, {8}, {9}, {10}, {11})".format(
             self.xtl, self.ytl, self.xbr, self.ybr,
             self.frame, self.lost, self.occluded,
             self.image, self.label,
-            self.generated, repr(self.attributes))
+            self.generated, self.score, repr(self.attributes))
 
     def __repr__(self):
         """

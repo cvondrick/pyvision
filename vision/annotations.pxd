@@ -6,4 +6,5 @@ cdef class Box(object):
     cdef public int generated
     cdef public object image
     cdef public object label
+    cdef public double score
     cdef public object attributes
