@@ -1,8 +1,6 @@
 import math
 import numpy
 import re
-import Image
-import os.path
 
 cimport numpy
 cimport cython
