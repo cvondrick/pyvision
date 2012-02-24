@@ -1,7 +1,11 @@
 from vision import Box
 from scipy.io import loadmat
+import logging
+
+logger = logging.getLogger("vision.detectionreader")
 
 def exemplarsvm(filename):
+    logger.info("Reading detections from {0}".format(filename))
     data = loadmat(filename)
     data = data['ds']
     for frame, detections in enumerate(data):

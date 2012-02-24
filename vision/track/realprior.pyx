@@ -18,8 +18,9 @@ class ThreeD(object):
         self.video = video
         self.patches = patches
         self.projections = projections
+        self.built = False
 
-    def build(self, seeds):
+    def build(self, seeds, forcescore = None):
         cdef double x, y, z
         cdef double normalizer, score 
         cdef double px, py, pn
@@ -37,6 +38,10 @@ class ThreeD(object):
             else:
                 useseeds.append(seed)
         seeds = useseeds
+
+        if forcescore is not None:
+            for seed in seeds:
+                seed.score = forcescore
 
         if not seeds:
             logger.warning("No seeds")
@@ -56,11 +61,12 @@ class ThreeD(object):
                 px = (matrix[0,0]*x + matrix[0,1]*y +matrix[0,2]*z + matrix[0,3]) / pn
                 py = (matrix[1,0]*x + matrix[1,1]*y +matrix[1,2]*z + matrix[1,3]) / pn
                 if seed.xtl <= px and seed.xbr >= px and seed.ytl <= py and seed.ybr >= py:
-                    score += 1
+                    score += seed.score
             if score > 0:
                 normalizer += score
                 self.mapping[x, y, z] = score
         self.normalizer = normalizer
+        self.built = True
 
         return self
 

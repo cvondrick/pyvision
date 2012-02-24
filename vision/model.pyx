@@ -51,8 +51,8 @@ class PathModel(object):
 
         self.realprior = realprior
         self.realpriorweight = realpriorweight
-        if self.realprior:
-            self.realprior.build(givens)
+        if self.realprior and not self.realprior.built:
+            self.realprior.build(givens, forcescore = 1)
 
     def extractpath(self, images, givens, dim, 
                     int hogbin, int rgbbin, int bgskip, int bgsize):
