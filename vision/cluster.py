@@ -38,6 +38,15 @@ def getproblem():
 def solveproblem(token, resp):
     solutions.put((token, resp))
 
+def imap(it):
+    for i, n in enumerate(it):
+        ask(i, n)
+    for i in range(len(it)):
+        yield answer(i)
+
+def map(it):
+    return list(imap(it))
+
 class Worker(Process):
     def __init__(self, callable):
         self.callable = callable
