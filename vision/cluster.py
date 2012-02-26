@@ -47,11 +47,12 @@ class Worker(Process):
 
 def handler(callable):
     workers = []
-    print cpu_count()
     for i in range(cpu_count()):
         w = Worker(callable)
         w.start()
         workers.append(w)
+    for worker in workers:
+        worker.join()
 
 def start_server():
     problems = Queue.Queue()
