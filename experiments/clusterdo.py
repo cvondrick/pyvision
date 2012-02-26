@@ -8,7 +8,9 @@ def isprime(n):
 
 cluster.setup('quickstep')
 
-while True:
-    token, problem, _ = cluster.getproblem()
-    result = isprime(problem[0])
-    cluster.solveproblem(token, result)
+@cluster.handler
+def launch():
+    while True:
+        token, problem, _ = cluster.getproblem()
+        result = isprime(problem[0])
+        cluster.solveproblem(token, result)

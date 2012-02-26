@@ -1,3 +1,4 @@
+from multiprocessing import Process, cpu_count
 from multiprocessing.managers import BaseManager
 import Queue
 
@@ -37,6 +38,21 @@ def getproblem():
 def solveproblem(token, resp):
     solutions.put((token, resp))
 
+class Worker(Process):
+    def __init__(self, callable):
+        self.callable = callable
+        super(Worker, self).__init__()
+    def run(self):
+        self.callable()
+
+def handler(callable):
+    workers = []
+    print cpu_count()
+    for i in range(cpu_count()):
+        w = Worker(callable)
+        w.start()
+        workers.append(w)
+
 def start_server():
     problems = Queue.Queue()
     solutions = Queue.Queue()
@@ -45,6 +61,7 @@ def start_server():
     m = QueueManager(address=('', port), authkey = authkey)
     s = m.get_server()
     s.serve_forever()
+
 
 if __name__ == "__main__":
     print "Started server."
