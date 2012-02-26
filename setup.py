@@ -65,7 +65,7 @@ if build_ffmpeg:
 for e in ext_modules:
     e.pyrex_directives = {
         "boundscheck": False,
-        "cdivision": False,
+        "cdivision": True,
         "infer_types": True,
         "embedsignature": True}
 #    e.include_dirs.append(".")

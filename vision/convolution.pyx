@@ -15,13 +15,12 @@ cpdef hogrgbmean(image, filtersize, hogfilter, rgbfilter, int hogbin = 8):
     r = rgbmean(image, filtersize, rgbfilter)
     return h + r
 
-cpdef sumprob(probmap, filtersize):
+cpdef sumprob(probmap):
     """
     Efficiently convolves a sum-flter around an image to sum probabilities.
     """
     # initialize some useful stuff
     cdef int width = probmap.shape[0], height = probmap.shape[1], i = 0, j = 0
-    cdef int filterwidth = filtersize[0], filterheight = filtersize[1]
     cdef np.ndarray[np.double_t, ndim=2] data = probmap
     cdef np.ndarray[np.double_t, ndim=2] sumarea = np.zeros((width, height))
     cdef double local = 0
