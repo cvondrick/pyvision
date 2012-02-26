@@ -28,7 +28,7 @@ def answer(wanted):
     while True:
         token, resp = solutions.get()
         if token == wanted:
-            return token
+            return resp
         data[token] = resp
 
 def getproblem():
