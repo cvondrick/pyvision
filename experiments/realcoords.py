@@ -30,8 +30,8 @@ negatives = glob('/csail/vision-videolabelme/databases/video_adapt/home_ac_a/fra
 negatives = [x for x in negatives if x != detfile]
 negatives = sum((list(vision.detectionreader.exemplarsvm(x)) for x in negatives), [])
 
-prior = ThreeD(video, patches, projections, sigma = 0.1)
-prior.build(detections, negatives = negatives)
+prior = ThreeD(video, patches, projections, sigma = 0.01)
+prior.build(detections)
 
 import pylab, numpy, Image
 for frame, nd in prior.scoreall():
@@ -51,5 +51,5 @@ for frame, nd in prior.scoreall():
 #        print box
 #        pylab.imshow(numpy.asarray(im))
 
-    pylab.savefig("tmp/{0}{1}.png".format(category, frame))
+    pylab.savefig("tmp2/{0}{1}.png".format(category, frame))
     pylab.clf()
