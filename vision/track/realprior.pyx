@@ -22,7 +22,7 @@ class ThreeD(object):
         self.built = False
         self.sigma = sigma
 
-    def build(self, seeds, forcescore = None, negatives = []):
+    def build(self, seeds, forcescore = None, negatives = [], posprune = 0, negprune = 0.1):
         cdef double x, y, z
         cdef double normalizer, score, mod
         cdef double px, py, pn
@@ -36,7 +36,7 @@ class ThreeD(object):
         useseeds = []
         for seed in seeds:
             if seed.frame in self.projections:
-                if exp(seed.score / sigma) > 0:
+                if exp(seed.score / sigma) > posprune:
                     useseeds.append((1, seed))
         seeds = useseeds
         logger.info("Using {0} seeds".format(len(seeds)))
@@ -45,7 +45,7 @@ class ThreeD(object):
             usenegatives = []
             for negative in negatives:
                 if negative.frame in self.projections:
-                    if exp(negative.score / sigma) > 0:
+                    if exp(negative.score / sigma) > negprune:
                         usenegatives.append((-1, negative))
             seeds.extend(usenegatives)
             logger.info("Using {0} negatives".format(len(usenegatives)))
