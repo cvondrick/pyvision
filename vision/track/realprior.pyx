@@ -22,9 +22,9 @@ class ThreeD(object):
         self.built = False
         self.sigma = sigma
 
-    def build(self, seeds, forcescore = None):
+    def build(self, seeds, forcescore = None, negatives = []):
         cdef double x, y, z
-        cdef double normalizer, score 
+        cdef double normalizer, score, mod
         cdef double px, py, pn
         cdef annotations.Box seed
         cdef numpy.ndarray[numpy.double_t, ndim=2] matrix
@@ -37,10 +37,18 @@ class ThreeD(object):
         for seed in seeds:
             if seed.frame in self.projections:
                 if exp(seed.score / sigma) > 0:
-                    useseeds.append(seed)
+                    useseeds.append((1, seed))
         seeds = useseeds
-
         logger.info("Using {0} seeds".format(len(seeds)))
+
+        if negatives:
+            usenegatives = []
+            for negative in negatives:
+                if negative.frame in self.projections:
+                    if exp(negative.score / sigma) > 0:
+                        usenegatives.append((-1, negative))
+            seeds.extend(usenegatives)
+            logger.info("Using {0} negatives".format(len(usenegatives)))
 
         if forcescore is not None:
             for seed in seeds:
@@ -56,7 +64,7 @@ class ThreeD(object):
             if num % 100 == 0 and num > 0:
                 logger.debug("Voted for {0} of {1} patches".format(num, numpatches))
             score = 0
-            for seed in seeds:
+            for mod, seed in seeds:
                 matrix = self.projections[seed.frame].matrix
                 x, y, z, _ = patch.realcoords
                 pn = matrix[2,0]*x + matrix[2,1]*y +matrix[2,2]*z + matrix[2,3]
@@ -65,7 +73,7 @@ class ThreeD(object):
                 px = (matrix[0,0]*x + matrix[0,1]*y +matrix[0,2]*z + matrix[0,3]) / pn
                 py = (matrix[1,0]*x + matrix[1,1]*y +matrix[1,2]*z + matrix[1,3]) / pn
                 if seed.xtl <= px and seed.xbr >= px and seed.ytl <= py and seed.ybr >= py:
-                    score += exp(seed.score / sigma)
+                    score += mod * exp(seed.score / sigma)
             if score > 0:
                 normalizer += score
                 self.mapping[x, y, z] = score

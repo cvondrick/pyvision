@@ -4,6 +4,7 @@ import vision.drawer
 import os.path
 from vision import visualize
 import random
+from glob import glob
 
 import vision.track.dp
 
@@ -21,10 +22,16 @@ patches, projections = pmvs.read(root, start = 1)
 
 category = 'sofa'
 
-detections = vision.detectionreader.exemplarsvm('/csail/vision-videolabelme/databases/video_adapt/home_ac_a/frames/5/dets-sun11-dpm-{0}.mat'.format(category))
+detfile = '/csail/vision-videolabelme/databases/video_adapt/home_ac_a/frames/5/dets-sun11-dpm-{0}.mat'.format(category)
+
+detections = vision.detectionreader.exemplarsvm(detfile)
+
+negatives = glob('/csail/vision-videolabelme/databases/video_adapt/home_ac_a/frames/5/dets-sun11-dpm-*.mat')
+negatives = [x for x in negatives if x != detfile]
+negatives = sum((list(vision.detectionreader.exemplarsvm(x)) for x in negatives), [])
 
 prior = ThreeD(video, patches, projections, sigma = 0.1)
-prior.build(detections)
+prior.build(detections, negatives = negatives)
 
 import pylab, numpy, Image
 for frame, nd in prior.scoreall():
