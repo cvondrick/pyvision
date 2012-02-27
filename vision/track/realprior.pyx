@@ -41,12 +41,16 @@ class ThreeD(object):
         seeds = useseeds
         logger.info("Using {0} seeds".format(len(seeds)))
 
+        cdef double lower = 0
         if negatives:
             usenegatives = []
             for negative in negatives:
                 if negative.frame in self.projections:
-                    if exp(negative.score / sigma) > negprune:
+                    negscore = exp(negative.score / sigma)             
+                    if negscore > negprune:
                         usenegatives.append((-1, negative))
+                        if negscore > lower:
+                            lower = negscore
             seeds.extend(usenegatives)
             logger.info("Using {0} negatives".format(len(usenegatives)))
 
@@ -73,8 +77,7 @@ class ThreeD(object):
                 px = (matrix[0,0]*x + matrix[0,1]*y +matrix[0,2]*z + matrix[0,3]) / pn
                 py = (matrix[1,0]*x + matrix[1,1]*y +matrix[1,2]*z + matrix[1,3]) / pn
                 if seed.xtl <= px and seed.xbr >= px and seed.ytl <= py and seed.ybr >= py:
-                    score += mod * exp(seed.score / sigma)
-            if score > 0:
+                    score += mod * exp(seed.score / sigma) + lower
                 normalizer += score
                 self.mapping[x, y, z] = score
         self.normalizer = normalizer
