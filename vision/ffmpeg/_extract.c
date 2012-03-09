@@ -22,13 +22,27 @@
  *          dosomething(frame)
  */
 
+#define OLD_FFMPEG 1
+
 extern "C"
 {
+#if OLD_FFMPEG
+
+#include <ffmpeg/avcodec.h>
+#include <ffmpeg/avformat.h>
+#include <ffmpeg/swscale.h>  
+#include <ffmpeg/avutil.h>
+
+#else
+
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>  
+
+#endif
 }
 
+#include <stdlib.h>
 #include "_extract.h"
 
 /**
@@ -67,7 +81,11 @@ int extract_video(char *filename, struct video_stream *output)
     // determine video stream
     for (i = 0; i < format_context->nb_streams; i++)
     {
+#if OLD_FFMPEG
+        if (format_context->streams[i]->codec->codec_type == CODEC_TYPE_VIDEO)
+#else
         if (format_context->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO)
+#endif
         {
             video_stream = i;
             break;
@@ -149,6 +167,9 @@ int read_frame(struct video_stream *stream, unsigned char **output)
         {
             //avcodec_decode_video(codec_context, frame_reg, &frame_finished, packet.data, packet.size);
 
+#if OLD_FFMPEG
+            avcodec_decode_video(codec_context, frame_reg, &frame_finished, packet.data, packet.size);
+#else
             AVPacket avpkt; 
             av_init_packet(&avpkt); 
             avpkt.data = packet.data; 
@@ -156,6 +177,8 @@ int read_frame(struct video_stream *stream, unsigned char **output)
             avpkt.flags = AV_PKT_FLAG_KEY; 
             avcodec_decode_video2(codec_context, 
             frame_reg, &frame_finished, &avpkt); 
+#endif
+
 
             if (frame_finished)
             {

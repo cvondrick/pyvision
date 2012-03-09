@@ -59,6 +59,7 @@ if build_ffmpeg:
             library_dirs = [root + "ffmpeg/"],
             libraries = ["avformat", "avcodec", "avutil", "swscale"],
             extra_objects = [root + "ffmpeg/_extract.o"],
+            extra_compile_args = "-fPIC",
             language = "c++")
    )
 
