@@ -21,7 +21,6 @@ root = os.path.join(path, "pmvs")
 patches, projections = pmvs.read(root, start = 1)
 
 category = 'sofa'
-
 detfile = '/csail/vision-videolabelme/databases/video_adapt/home_ac_a/frames/5/dets-sun11-dpm-{0}.mat'.format(category)
 
 detections = vision.detectionreader.exemplarsvm(detfile)
