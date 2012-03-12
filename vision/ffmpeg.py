@@ -4,7 +4,7 @@ import random
 import Image
 
 class extract(object):
-    def __init__(self, path):
+    def __init__(self, path, fps = None):
         self.key = int(random.random() * 1000000000)
         self.key = "pyvision-ffmpeg-{0}".format(self.key)
         self.output = "/tmp/{0}".format(self.key)
@@ -13,7 +13,11 @@ class extract(object):
             os.makedirs(self.output) 
         except:
             pass
-        os.system("ffmpeg -i {0} -b 10000k {1}/%d.jpg".format(path, self.output))
+
+        cmd = "ffmpeg -i {0} -b 10000k".format(path)
+        if fps:
+            cmd = "{0} -r {1}".format(cmd, int(fps))
+        os.system("{0} {1}/%d.jpg".format(cmd, self.output))
 
     def __del__(self):
         if self.output:
