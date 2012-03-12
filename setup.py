@@ -17,16 +17,6 @@ import os
 import numpy
 import sys
 
-build_ffmpeg = True
-if "--disable-ffmpeg" in sys.argv:
-    sys.argv.remove("--disable-ffmpeg")
-    build_ffmpeg = False
-
-if build_ffmpeg:
-    print "building ffmpeg/_extract.o"
-    os.system("g++ -Wno-deprecated-declarations -D__STDC_CONSTANT_MACROS -c -O3 "
-            "-fPIC vision/ffmpeg/_extract.c -o vision/ffmpeg/_extract.o")
-
 print "building liblinear"
 os.system("make -C vision/liblinear")
 
@@ -50,17 +40,6 @@ ext_modules = [
                          root + "liblinear/blas/blas.a"],
         language = "c++")]
 
-if build_ffmpeg:
-    ext_modules.append(
-        Extension("vision.ffmpeg.extract",
-            sources = ["vision/ffmpeg/extract.pyx"],
-            include_dirs = [root + "ffmpeg/"],
-            library_dirs = [root + "ffmpeg/"],
-            libraries = ["avformat", "avcodec", "avutil", "swscale"],
-            extra_objects = [root + "ffmpeg/_extract.o"],
-            language = "c++")
-   )
-
 for e in ext_modules:
     e.pyrex_directives = {
         "boundscheck": False,
@@ -83,7 +62,6 @@ setup(
                    "Intended Audience :: Developers"],
     packages = ["vision",
                 "vision.track",
-                "vision.ffmpeg",
                 "vision.alearn",
                 "vision.reporting"],
     cmdclass = {"build_ext": build_ext},
