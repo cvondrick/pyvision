@@ -22,7 +22,7 @@
  *          dosomething(frame)
  */
 
-#define OLD_FFMPEG 1
+#define OLD_FFMPEG 0
 
 extern "C"
 {
