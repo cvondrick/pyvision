@@ -10,11 +10,9 @@ pool = multiprocessing.Pool(multiprocessing.cpu_count())
 
 import vision.track.dp
 
-logging.basicConfig(level = logging.INFO)
+logging.basicConfig(level = logging.DEBUG)
 
-path = ("/csail/vision-videolabelme/databases/"
-        "video_adapt/home_ac_a/frames/0/bundler")
-path = "/csail/vision-videolabelme/databases/video_adapt/demos/bottle_table/bundler"
+path = "/csail/vision-videolabelme/databases/video_adapt/home_ac_a/frames/5/bundler"
 
 video = vision.flatframeiterator(path + "/..", start = 1)
 
@@ -30,14 +28,16 @@ patches, projections = pmvs.read(root, start = 1)
 #badseed = vision.Box(358, 12, 358 + 33, 12 + 25, 150)
 #seeds = [seed, seed2, seed5, seed6]
 
-detections = vision.detectionreader.exemplarsvm('/csail/vision-videolabelme/databases/video_adapt/demos/bottle_table/pedro-pascal-bottle.mat')
+category = 'sofa'
+detfile = '/csail/vision-videolabelme/databases/video_adapt/home_ac_a/frames/5/dets-sun11-dpm-{0}.mat'.format(category)
+detections = vision.detectionreader.exemplarsvm(detfile)
 detections = list(detections)
 detections.sort(key = lambda x: -x.score)
+
+print detections[0]
+
 realprior = ThreeD(video, patches, projections).build(detections)
-
-print detections[0].frame
-
-predicted = vision.track.dp.fill([detections[0]], video, last = len(video), pool = pool, hogbin = 4, pairwisecost = 0.01, c = 0.1, realprior = realprior)
+predicted = vision.track.dp.fill([detections[0]], video, last = detections[0].frame + 1000, pool = pool, hogbin = 4, pairwisecost = 0.01, c = 0.1, realprior = realprior)
 
 #path = ("/csail/vision-videolabelme/databases/"
 #        "video_adapt/home_ac_a/frames/5/bundler-5")

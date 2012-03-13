@@ -41,9 +41,11 @@ class PascalDataset(object):
                 if classes and label not in classes:
                     continue
 
-                difficult = bool(int(object.find("difficult").text))
-                if difficult and nodifficult:
-                    continue
+                if nodifficult:
+                    difficult = object.find("difficult").text
+                    difficult = bool(int(difficult))
+                    if difficult:
+                        continue
 
                 xtl = int(object.find("bndbox/xmin").text)
                 ytl = int(object.find("bndbox/ymin").text)
