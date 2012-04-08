@@ -29,7 +29,7 @@ def Linear(source, target):
         lost = source.lost or target.lost
         results.append(Box(xtl, ytl, xbr, ybr,
                        i, lost, source.occluded, generated,
-                       list(source.attributes)))
+                       attributes = list(source.attributes)))
 
     return results
 
