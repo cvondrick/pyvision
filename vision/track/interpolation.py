@@ -33,7 +33,6 @@ def Linear(source, target):
                        occluded = source.occluded,
                        generated = generated,
                        attributes = list(source.attributes)))
-        print results[-1].generated
 
     return results
 
