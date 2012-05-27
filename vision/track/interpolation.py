@@ -28,8 +28,12 @@ def Linear(source, target):
         generated = int(i != source.frame and i != target.frame)
         lost = source.lost or target.lost
         results.append(Box(xtl, ytl, xbr, ybr,
-                       i, lost, source.occluded, generated,
+                       frame = i, 
+                       lost = lost,
+                       occluded = source.occluded,
+                       generated = generated,
                        attributes = list(source.attributes)))
+        print results[-1].generated
 
     return results
 
