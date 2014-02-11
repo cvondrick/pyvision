@@ -93,8 +93,8 @@ cdef class Box(object):
         """
         Calculates the percent of boxes that overlap.
         """
-        xdiff = min(self.xbr, oth.xbr) - max(self.xtl, oth.xtl) 
-        ydiff = min(self.ybr, oth.ybr) - max(self.ytl, oth.ytl) 
+        xdiff = <float>(min(self.xbr, oth.xbr) - max(self.xtl, oth.xtl))
+        ydiff = <float>(min(self.ybr, oth.ybr) - max(self.ytl, oth.ytl))
 
         if xdiff <= 0 or ydiff <= 0:
             return 0
