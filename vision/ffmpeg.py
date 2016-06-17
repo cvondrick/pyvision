@@ -1,7 +1,7 @@
 import os
 import shutil
 import random
-import Image
+from PIL import Image
 
 class extract(object):
     def __init__(self, path, fps = None, size = None):

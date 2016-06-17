@@ -13,8 +13,8 @@ The only dependencies are Tkinter and PIL (it does not depend on pyvision).
 """
 
 from Tkinter import *
-import Image
-import ImageTk
+from PIL import Image
+from PIL import ImageTk
 
 try:
     import vision

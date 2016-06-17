@@ -1,4 +1,4 @@
-import ImageDraw
+from PIL import ImageDraw
 import itertools
 import random
 import logging
