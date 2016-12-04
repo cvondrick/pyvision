@@ -6,7 +6,7 @@ import os
 import multiprocessing
 import logging
 import random
-import ImageColor
+from PIL import ImageColor
 import pylab
 import pickle
 

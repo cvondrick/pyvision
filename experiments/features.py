@@ -1,5 +1,5 @@
 from vision import features
-import Image
+from PIL import Image
 from scipy.io import savemat as savematlab
 
 im = Image.open("/scratch/vatic/syn-bounce-level/0/0/0.jpg")

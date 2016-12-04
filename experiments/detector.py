@@ -4,7 +4,7 @@ from vision import *
 from vision.visualize import highlight_box
 from vision import features
 from vision.toymaker import *
-import Image
+from PIL import Image
 import numpy
 import pylab
 from scipy.io import savemat as savematlab

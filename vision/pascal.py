@@ -11,7 +11,7 @@ Example usage:
 
 from vision import Box
 import os
-import Image
+from PIL import Image
 import logging
 from xml.etree import ElementTree
 
